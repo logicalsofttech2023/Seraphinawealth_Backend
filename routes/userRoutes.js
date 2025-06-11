@@ -7,6 +7,16 @@ import {
   updateProfile,
   getUserById,
   addMoneyToWallet,
+  getPolicyByType,
+  getFAQList,
+  getFAQByFaqId,
+  getWalletDetails,
+  getTransactionHistory,
+  withdrawFromWallet,
+  linkBankAccount,
+  getBankAccount,
+  updateBankAccount,
+  getBankAccountById,
 } from "../controllers/userController.js";
 import authMiddleware from "../middlewares/authMiddleware.js";
 import { uploadProfile } from "../middlewares/uploadMiddleware.js";
@@ -41,5 +51,22 @@ router.post(
 );
 router.get("/getUserById", authMiddleware, getUserById);
 router.post("/addMoneyToWallet", authMiddleware, addMoneyToWallet);
+router.get("/getWalletDetails", authMiddleware, getWalletDetails);
+router.get("/getTransactionHistory", authMiddleware, getTransactionHistory);
+router.post("/withdrawFromWallet", authMiddleware, withdrawFromWallet);
+router.post("/linkBankAccount", authMiddleware, linkBankAccount);
+router.get("/getBankAccount", authMiddleware, getBankAccount);
+router.post("/updateBankAccount", authMiddleware, updateBankAccount);
+router.get("/getBankAccountById", authMiddleware, getBankAccountById);
+
+
+
+
+
+
+router.get("/getPolicyByType", getPolicyByType);
+
+router.get("/getFAQList", getFAQList);
+router.get("/getFAQByFaqId", getFAQByFaqId);
 
 export default router;

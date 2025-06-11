@@ -13,7 +13,7 @@ router.post("/resetAdminPassword", authMiddleware, resetAdminPassword);
 
 router.post("/updateAdminDetail", authMiddleware, updateAdminDetail);
 
-router.post("/policyUpdate", authMiddleware, policyUpdate);
+router.post("/policyUpdate", policyUpdate);
 
 router.get("/getPolicy", authMiddleware, getPolicy);
 
@@ -21,7 +21,7 @@ router.post("/addUpdateMembership", authMiddleware, addUpdateMembership);
 
 router.get("/getAllMembership", authMiddleware, getAllMembership);
 
-router.post("/addFAQ", authMiddleware, addFAQ);
+router.post("/addFAQ", addFAQ);
 
 router.post("/updateFAQ", authMiddleware, updateFAQ);
 

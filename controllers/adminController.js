@@ -348,7 +348,7 @@ export const getAllMembership = async (req, res) => {
 
 export const addFAQ = async (req, res) => {
   try {
-    const { question, answer, category } = req.body;
+    const { question, answer } = req.body;
 
     if (!question || !answer) {
       return res.status(400).json({ message: "Question and answer are required." });
@@ -357,7 +357,7 @@ export const addFAQ = async (req, res) => {
     const newFAQ = new FAQ({
       question,
       answer,
-      category,
+      
     });
 
     await newFAQ.save();
@@ -371,11 +371,11 @@ export const addFAQ = async (req, res) => {
 
 export const updateFAQ = async (req, res) => {
   try {
-    const { question, answer, category, isActive, id } = req.body;
+    const { question, answer, isActive, id } = req.body;
 
     const updatedFAQ = await FAQ.findByIdAndUpdate(
       id,
-      { question, answer, category, isActive },
+      { question, answer, isActive },
       { new: true, runValidators: true }
     );
 
