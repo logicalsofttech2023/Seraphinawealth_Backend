@@ -7,7 +7,7 @@ import crypto from "crypto";
 import Transaction from "../models/TransactionModel.js";
 import { addNotification } from "../utils/AddNotification.js";
 import { Policy, FAQ } from "../models/PolicyModel.js";
-import BankAccount from "../models/BankAccount.js";
+import BankAccount, { BankName } from "../models/BankAccount.js";
 
 const generateJwtToken = (user) => {
   return jwt.sign(
@@ -396,7 +396,9 @@ export const withdrawFromWallet = async (req, res) => {
     }
 
     if (Number(user.wallet) < amount) {
-      return res.status(400).json({ message: "Insufficient wallet balance", status: false });
+      return res
+        .status(400)
+        .json({ message: "Insufficient wallet balance", status: false });
     }
 
     // Deduct amount
@@ -518,7 +520,6 @@ export const getFAQByFaqId = async (req, res) => {
   }
 };
 
-
 export const getTransactionHistory = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -528,7 +529,9 @@ export const getTransactionHistory = async (req, res) => {
       return res.status(404).json({ message: "User not found", status: false });
     }
 
-    const transactions = await Transaction.find({ userId }).sort({ createdAt: -1 });
+    const transactions = await Transaction.find({ userId }).sort({
+      createdAt: -1,
+    });
 
     return res.status(200).json({
       message: "Transaction history fetched successfully",
@@ -548,32 +551,44 @@ export const getTransactionHistory = async (req, res) => {
 export const linkBankAccount = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { accountHolderName, bankName, accountNumber, ifscCode } = req.body;
+    const { bankNameId, accountNumber, ifscCode } = req.body;
 
-    if (!accountHolderName || !bankName || !accountNumber || !ifscCode) {
-      return res.status(400).json({ message: "All fields are required", status: false });
+    if (!bankNameId || !accountNumber || !ifscCode) {
+      return res
+        .status(400)
+        .json({ message: "All fields are required", status: false });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(bankNameId)) {
+      return res
+        .status(400)
+        .json({ message: "Invalid bankNameId", status: false });
     }
 
     // Check if already exists
     const existing = await BankAccount.findOne({ userId });
     if (existing) {
-      return res.status(409).json({ message: "Bank account already linked", status: false });
+      return res
+        .status(409)
+        .json({ message: "Bank account already linked", status: false });
     }
 
     const bankAccount = new BankAccount({
       userId,
-      accountHolderName,
-      bankName,
+
+      bankNameId,
       accountNumber,
       ifscCode,
     });
 
     await bankAccount.save();
 
+    const populated = await bankAccount.populate("bankNameId", "name icon");
+
     return res.status(201).json({
       message: "Bank account linked successfully",
       status: true,
-      data: bankAccount,
+      data: populated,
     });
   } catch (error) {
     console.error("Error linking bank account:", error);
@@ -585,10 +600,14 @@ export const getBankAccount = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    const bankAccount = await BankAccount.findOne({ userId });
+    const bankAccount = await BankAccount.findOne({ userId }).populate(
+      "bankNameId"
+    );
 
     if (!bankAccount) {
-      return res.status(404).json({ message: "Bank account not found", status: false });
+      return res
+        .status(404)
+        .json({ message: "Bank account not found", status: false });
     }
 
     return res.status(200).json({
@@ -607,13 +626,17 @@ export const getBankAccountById = async (req, res) => {
     const { id } = req.query;
 
     if (!id) {
-      return res.status(400).json({ message: "Bank account ID is required", status: false });
+      return res
+        .status(400)
+        .json({ message: "Bank account ID is required", status: false });
     }
 
-    const bankAccount = await BankAccount.findById(id);
+    const bankAccount = await BankAccount.findById(id).populate("bankNameId");
 
     if (!bankAccount) {
-      return res.status(404).json({ message: "Bank account not found", status: false });
+      return res
+        .status(404)
+        .json({ message: "Bank account not found", status: false });
     }
 
     return res.status(200).json({
@@ -628,32 +651,83 @@ export const getBankAccountById = async (req, res) => {
 };
 
 export const updateBankAccount = async (req, res) => {
-  try {    
-    const { accountHolderName, bankName, accountNumber, ifscCode, id } = req.body;
+  try {
+    const { id, bankNameId, accountNumber, ifscCode } = req.body;
 
-    if (!id || !accountHolderName || !bankName || !accountNumber || !ifscCode) {
-      return res.status(400).json({ message: "All fields are required", status: false });
+    // Basic validation
+    if (
+      !id ||
+      !accountHolderName ||
+      !bankNameId ||
+      !accountNumber ||
+      !ifscCode
+    ) {
+      return res
+        .status(400)
+        .json({ message: "All fields are required", status: false });
     }
 
-    const bankAccount = await BankAccount.findById(id);
-    if (!bankAccount) {
-      return res.status(404).json({ message: "Bank account not found", status: false });
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res
+        .status(400)
+        .json({ message: "Invalid account ID", status: false });
     }
 
-    bankAccount.accountHolderName = accountHolderName || bankAccount.accountHolderName;
-    bankAccount.bankName = bankName || bankAccount.bankName;
-    bankAccount.accountNumber = accountNumber || bankAccount.accountNumber;
-    bankAccount.ifscCode = ifscCode || bankAccount.ifscCode;
+    if (!mongoose.Types.ObjectId.isValid(bankNameId)) {
+      return res
+        .status(400)
+        .json({ message: "Invalid bankNameId", status: false });
+    }
 
-    await bankAccount.save();
+    const updated = await BankAccount.findByIdAndUpdate(
+      id,
+      {
+        bankNameId,
+        accountNumber,
+        ifscCode,
+      },
+      { new: true, runValidators: true }
+    ).populate("bankNameId", "name icon");
+
+    if (!updated) {
+      return res
+        .status(404)
+        .json({ message: "Bank account not found", status: false });
+    }
 
     return res.status(200).json({
       message: "Bank account updated successfully",
       status: true,
-      data: bankAccount,
+      data: updated,
     });
   } catch (error) {
     console.error("Error updating bank account:", error);
     return res.status(500).json({ message: "Server error", status: false });
+  }
+};
+
+export const getAllBankNames = async (req, res) => {
+  try {
+    const bankNames = await BankName.find().sort({ createdAt: -1 });
+    res
+      .status(200)
+      .json({ bankNames, message: "Bank names fetched successfully" });
+  } catch (error) {
+    console.error("Error fetching bank names:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const getBankNameById = async (req, res) => {
+  try {
+    const { id } = req.query;
+    const bankName = await BankName.findById(id);
+    if (!bankName) {
+      return res.status(404).json({ message: "Bank name not found" });
+    }
+    res.status(200).json({ bankName, message: "Bank name fetch successfully" });
+  } catch (error) {
+    console.error("Error fetching bank name:", error);
+    res.status(500).json({ message: "Internal server error" });
   }
 };

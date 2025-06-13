@@ -2,6 +2,7 @@ import { Policy, FAQ } from "../models/PolicyModel.js";
 import Admin from "../models/AdminModel.js";
 import jwt from "jsonwebtoken";
 import Membership from "../models/MembershipModel.js";
+import { BankName } from "../models/BankAccount.js";
 
 const generateJwtToken = (user) => {
   return jwt.sign(
@@ -351,13 +352,14 @@ export const addFAQ = async (req, res) => {
     const { question, answer } = req.body;
 
     if (!question || !answer) {
-      return res.status(400).json({ message: "Question and answer are required." });
+      return res
+        .status(400)
+        .json({ message: "Question and answer are required." });
     }
 
     const newFAQ = new FAQ({
       question,
       answer,
-      
     });
 
     await newFAQ.save();
@@ -383,7 +385,9 @@ export const updateFAQ = async (req, res) => {
       return res.status(404).json({ message: "FAQ not found" });
     }
 
-    res.status(200).json({ message: "FAQ updated successfully", faq: updatedFAQ });
+    res
+      .status(200)
+      .json({ message: "FAQ updated successfully", faq: updatedFAQ });
   } catch (error) {
     console.error("Error updating FAQ:", error);
     res.status(500).json({ message: "Internal server error" });
@@ -416,4 +420,107 @@ export const getFAQById = async (req, res) => {
   }
 };
 
+export const CreateBankName = async (req, res) => {
+  try {
+    const { name } = req.body;
 
+    if (!name) {
+      return res.status(400).json({ message: "Name is required." });
+    }
+
+    const icon = req.files?.icon?.[0]?.filename || "";
+
+    if (!icon) {
+      return res.status(400).json({ message: "Icon is required." });
+    }
+
+    const newBankName = new BankName({
+      name,
+      icon,
+    });
+
+    await newBankName.save();
+
+    res
+      .status(200)
+      .json({ message: "Bank name added successfully", bankName: newBankName });
+  } catch (error) {
+    console.error("Error adding bank name:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const getAllBankNamesInAdmin = async (req, res) => {
+  try {
+    const bankNames = await BankName.find().sort({ createdAt: -1 });
+    res.status(200).json({ bankNames, message: "Bank names fetched successfully" });
+  } catch (error) {
+    console.error("Error fetching bank names:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const updateBankName = async (req, res) => {
+  try {
+    const { name, isActive, id } = req.body;
+
+    // Get uploaded icon file name, if exists
+    const icon = req.files?.icon?.[0]?.filename;
+
+    // Build the update object dynamically
+    const updateData = {
+      ...(name && { name }),
+      ...(typeof isActive !== "undefined" && { isActive }),
+      ...(icon && { icon }), // update icon only if new file uploaded
+    };
+
+    const updatedBankName = await BankName.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedBankName) {
+      return res.status(404).json({ message: "Bank name not found" });
+    }
+
+    res.status(200).json({
+      message: "Bank name updated successfully",
+      bankName: updatedBankName,
+    });
+  } catch (error) {
+    console.error("Error updating bank name:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const deleteBankName = async (req, res) => {
+  try {
+    const { id } = req.body;
+
+    const deletedBankName = await BankName.findByIdAndDelete(id);
+
+    if (!deletedBankName) {
+      return res.status(404).json({ message: "Bank name not found" });
+    }
+
+    res.status(200).json({ message: "Bank name deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting bank name:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const getBankNameByIdInAdmin = async (req, res) => {
+  try {
+    const { id } = req.query;
+    const bankName = await BankName.findById(id);
+    if (!bankName) {
+      return res.status(404).json({ message: "Bank name not found" });
+    }
+    res.status(200).json({ bankName, message: "Bank name fetch successfully" });
+  } catch (error) {
+    console.error("Error fetching bank name:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};

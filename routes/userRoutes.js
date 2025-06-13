@@ -17,6 +17,8 @@ import {
   getBankAccount,
   updateBankAccount,
   getBankAccountById,
+  getAllBankNames,
+  getBankNameById,
 } from "../controllers/userController.js";
 import authMiddleware from "../middlewares/authMiddleware.js";
 import { uploadProfile } from "../middlewares/uploadMiddleware.js";
@@ -59,14 +61,11 @@ router.get("/getBankAccount", authMiddleware, getBankAccount);
 router.post("/updateBankAccount", authMiddleware, updateBankAccount);
 router.get("/getBankAccountById", authMiddleware, getBankAccountById);
 
-
-
-
-
-
 router.get("/getPolicyByType", getPolicyByType);
 
 router.get("/getFAQList", getFAQList);
 router.get("/getFAQByFaqId", getFAQByFaqId);
+router.get("/getAllBankNames", getAllBankNames);
+router.get("/getBankNameById", getBankNameById);
 
 export default router;
