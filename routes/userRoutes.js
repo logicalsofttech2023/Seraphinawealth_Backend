@@ -19,12 +19,29 @@ import {
   getBankAccountById,
   getAllBankNames,
   getBankNameById,
+  getNotificationsByUserId,
+  updateProfileImage,
+  createInvestmentPurchase,
+  getAllInvestmentPlansInWeb,
+  getAllInvestmentPlansInApp,
+  getInvestmentPlanById,
+  getInvestmentPurchasesInWeb,
+  getInvestmentPurchasesInApp,
+  getInvestmentPerformance,
+  getInvestmentPerformanceChart,
+  getPopularPlans,
+  getFeaturedPlans,
+  getAllCategory,
 } from "../controllers/userController.js";
+
 import authMiddleware from "../middlewares/authMiddleware.js";
 import { uploadProfile } from "../middlewares/uploadMiddleware.js";
 
 const router = express.Router();
 
+/* ----------------------------------
+   🔐 OTP & Registration
+---------------------------------- */
 router.post("/generateOtp", generateOtp);
 router.post("/verifyOtp", verifyOtp);
 router.post("/resendOtp", resendOtp);
@@ -39,6 +56,10 @@ router.post(
   ]),
   completeRegistration
 );
+
+/* ----------------------------------
+   👤 User Profile
+---------------------------------- */
 router.post(
   "/updateProfile",
   authMiddleware,
@@ -51,21 +72,57 @@ router.post(
   ]),
   updateProfile
 );
+router.post(
+  "/updateProfileImage",
+  authMiddleware,
+  uploadProfile.fields([{ name: "profileImage", maxCount: 1 }]),
+  updateProfileImage
+);
 router.get("/getUserById", authMiddleware, getUserById);
+
+/* ----------------------------------
+   💰 Wallet & Transactions
+---------------------------------- */
 router.post("/addMoneyToWallet", authMiddleware, addMoneyToWallet);
 router.get("/getWalletDetails", authMiddleware, getWalletDetails);
 router.get("/getTransactionHistory", authMiddleware, getTransactionHistory);
 router.post("/withdrawFromWallet", authMiddleware, withdrawFromWallet);
+
+/* ----------------------------------
+   🏦 Bank Account Management
+---------------------------------- */
 router.post("/linkBankAccount", authMiddleware, linkBankAccount);
 router.get("/getBankAccount", authMiddleware, getBankAccount);
 router.post("/updateBankAccount", authMiddleware, updateBankAccount);
 router.get("/getBankAccountById", authMiddleware, getBankAccountById);
-
-router.get("/getPolicyByType", getPolicyByType);
-
-router.get("/getFAQList", getFAQList);
-router.get("/getFAQByFaqId", getFAQByFaqId);
 router.get("/getAllBankNames", getAllBankNames);
 router.get("/getBankNameById", getBankNameById);
+
+/* ----------------------------------
+   📈 Investment Plans & Purchases
+---------------------------------- */
+router.post("/createInvestmentPurchase", authMiddleware, createInvestmentPurchase);
+router.get("/getAllInvestmentPlansInWeb", authMiddleware, getAllInvestmentPlansInWeb);
+router.get("/getAllInvestmentPlansInApp", authMiddleware, getAllInvestmentPlansInApp);
+router.get("/getInvestmentPlanById", authMiddleware, getInvestmentPlanById);
+router.get("/getInvestmentPurchasesInWeb", authMiddleware, getInvestmentPurchasesInWeb);
+router.get("/getInvestmentPurchasesInApp", authMiddleware, getInvestmentPurchasesInApp);
+router.get("/getInvestmentPerformance", authMiddleware, getInvestmentPerformance);
+router.get("/getInvestmentPerformanceChart", authMiddleware, getInvestmentPerformanceChart);
+router.get("/getPopularPlans", authMiddleware, getPopularPlans);
+router.get("/getFeaturedPlans", authMiddleware, getFeaturedPlans);
+router.get("/getAllCategory", authMiddleware, getAllCategory);
+
+/* ----------------------------------
+   🔔 Notifications
+---------------------------------- */
+router.get("/getNotificationsByUserId", authMiddleware, getNotificationsByUserId);
+
+/* ----------------------------------
+   📃 Policy & FAQ
+---------------------------------- */
+router.get("/getPolicyByType", getPolicyByType);
+router.get("/getFAQList", getFAQList);
+router.get("/getFAQByFaqId", getFAQByFaqId);
 
 export default router;

@@ -3,6 +3,9 @@ import Admin from "../models/AdminModel.js";
 import jwt from "jsonwebtoken";
 import Membership from "../models/MembershipModel.js";
 import { BankName } from "../models/BankAccount.js";
+import InvestmentCategory from "../models/InvestmentCategory.js";
+import InvestmentPlan from "../models/InvestmentPlan.js";
+import mongoose from "mongoose";
 
 const generateJwtToken = (user) => {
   return jwt.sign(
@@ -453,7 +456,9 @@ export const CreateBankName = async (req, res) => {
 export const getAllBankNamesInAdmin = async (req, res) => {
   try {
     const bankNames = await BankName.find().sort({ createdAt: -1 });
-    res.status(200).json({ bankNames, message: "Bank names fetched successfully" });
+    res
+      .status(200)
+      .json({ bankNames, message: "Bank names fetched successfully" });
   } catch (error) {
     console.error("Error fetching bank names:", error);
     res.status(500).json({ message: "Internal server error" });
@@ -474,11 +479,10 @@ export const updateBankName = async (req, res) => {
       ...(icon && { icon }), // update icon only if new file uploaded
     };
 
-    const updatedBankName = await BankName.findByIdAndUpdate(
-      id,
-      updateData,
-      { new: true, runValidators: true }
-    );
+    const updatedBankName = await BankName.findByIdAndUpdate(id, updateData, {
+      new: true,
+      runValidators: true,
+    });
 
     if (!updatedBankName) {
       return res.status(404).json({ message: "Bank name not found" });
@@ -524,3 +528,274 @@ export const getBankNameByIdInAdmin = async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 };
+
+export const createCategory = async (req, res) => {
+  try {
+    const { name, description } = req.body;
+    const iconFile = req.file || req.files?.icon?.[0];
+
+    const existing = await InvestmentCategory.findOne({ name });
+    if (existing) {
+      return res.status(400).json({ message: "Category already exists" });
+    }
+
+    const icon = iconFile?.filename || null;
+
+    const newCategory = new InvestmentCategory({ name, description, icon });
+    await newCategory.save();
+
+    res.status(201).json({ message: "Category created", data: newCategory });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Error creating category", error: error.message });
+  }
+};
+
+export const updateCategory = async (req, res) => {
+  try {
+    const { id } = req.query;
+    const { name, description } = req.body;
+    const iconFile = req.file || req.files?.icon?.[0];
+
+    const updates = {
+      ...(name && { name }),
+      ...(description && { description }),
+      ...(iconFile?.filename && { icon: iconFile.filename }),
+    };
+
+    const updated = await InvestmentCategory.findByIdAndUpdate(id, updates, {
+      new: true,
+    });
+    if (!updated)
+      return res.status(404).json({ message: "Category not found" });
+
+    res.json({ message: "Category updated", data: updated });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Error updating category", error: error.message });
+  }
+};
+
+export const getAllCategories = async (req, res) => {
+  try {
+    const categories = await InvestmentCategory.find().sort({ createdAt: -1 });
+    res.status(200).json({ message: "Categories fetched", data: categories });
+  } catch (error) {
+    res.status(500).json({
+      message: "Error fetching categories",
+      error: error.message,
+    });
+  }
+};
+
+export const getCategoryById = async (req, res) => {
+  const { id } = req.query;
+
+  // Validate MongoDB ObjectId
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ message: "Invalid category ID" });
+  }
+
+  try {
+    const category = await InvestmentCategory.findById(id);
+    if (!category) {
+      return res.status(404).json({ message: "Category not found" });
+    }
+    res.status(200).json({ message: "Category fetched", data: category });
+  } catch (error) {
+    res.status(500).json({
+      message: "Error fetching category",
+      error: error.message,
+    });
+  }
+};
+
+export const deleteCategory = async (req, res) => {
+  const { id } = req.query;
+
+  // Validate MongoDB ObjectId
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ message: "Invalid category ID" });
+  }
+
+  try {
+    const deleted = await InvestmentCategory.findByIdAndDelete(id);
+    if (!deleted) {
+      return res.status(404).json({ message: "Category not found" });
+    }
+
+    res.status(200).json({
+      message: "Category deleted successfully",
+      data: deleted,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Error deleting category",
+      error: error.message,
+    });
+  }
+};
+
+export const addInvestmentPlan = async (req, res) => {
+  try {
+    const {
+      categoryId,
+      title,
+      minAmount,
+      durationMonths,
+      roi,
+      risk,
+      additionalInfo,
+      description,
+      status,
+    } = req.body;
+
+    // Validate required fields
+    if (!categoryId || !title || !minAmount || !durationMonths || !roi) {
+      return res.status(400).json({ message: "Missing required fields" });
+    }
+
+    const newPlan = new InvestmentPlan({
+      categoryId,
+      title,
+      minAmount,
+      durationMonths,
+      roi,
+      risk, // optional: defaults to "Moderate"
+      additionalInfo,
+      description,
+      status, // optional: defaults to "active"
+    });
+
+    await newPlan.save();
+
+    res.status(201).json({
+      message: "Investment Plan created successfully",
+      data: newPlan,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Error creating investment plan",
+      error: error.message,
+    });
+  }
+};
+
+export const updateInvestmentPlan = async (req, res) => {
+  try {
+    const { id } = req.query;
+
+    const {
+      categoryId,
+      title,
+      minAmount,
+      durationMonths,
+      roi,
+      risk,
+      additionalInfo,
+      description,
+      status,
+    } = req.body;
+
+    const updates = {
+      ...(categoryId && { categoryId }),
+      ...(title && { title }),
+      ...(minAmount && { minAmount }),
+      ...(durationMonths && { durationMonths }),
+      ...(roi && { roi }),
+      ...(risk && { risk }),
+      ...(additionalInfo && { additionalInfo }),
+      ...(description && { description }),
+      ...(status && { status }),
+    };
+
+    const updatedPlan = await InvestmentPlan.findByIdAndUpdate(id, updates, {
+      new: true,
+    });
+
+    if (!updatedPlan) {
+      return res.status(404).json({ message: "Investment Plan not found" });
+    }
+
+    res.json({
+      message: "Investment Plan updated successfully",
+      data: updatedPlan,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Error updating investment plan",
+      error: error.message,
+    });
+  }
+};
+
+export const getAllPlans = async (req, res) => {
+  try {
+    const plans = await InvestmentPlan.find().populate("categoryId");
+
+    res.status(200).json({
+      message: "Investment plans fetched successfully",
+      data: plans,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Error fetching investment plans",
+      error: error.message,
+    });
+  }
+};
+
+export const getPlanById = async (req, res) => {
+  try {
+    const { id } = req.query;
+
+    const plan = await InvestmentPlan.findById(id).populate("categoryId");
+    if (!plan) {
+      return res.status(404).json({ message: "Investment plan not found" });
+    }
+
+    res.status(200).json({
+      message: "Investment plan fetched successfully",
+      data: plan,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Error fetching investment plan",
+      error: error.message,
+    });
+  }
+};
+
+
+export const updatePlanFlags = async (req, res) => {
+  try {
+    const { isPopular, isFeatured, planId } = req.body;
+
+    const updateData = {};
+    if (typeof isPopular === "boolean") updateData.isPopular = isPopular;
+    if (typeof isFeatured === "boolean") updateData.isFeatured = isFeatured;
+
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({ message: "No valid fields provided" });
+    }
+
+    const updated = await InvestmentPlan.findByIdAndUpdate(planId, updateData, {
+      new: true
+    });
+
+    if (!updated) {
+      return res.status(404).json({ message: "Investment Plan not found" });
+    }
+
+    res.status(200).json({
+      message: "Plan updated successfully",
+      data: updated
+    });
+  } catch (error) {
+    console.error("Update error:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+

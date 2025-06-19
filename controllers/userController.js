@@ -8,6 +8,10 @@ import Transaction from "../models/TransactionModel.js";
 import { addNotification } from "../utils/AddNotification.js";
 import { Policy, FAQ } from "../models/PolicyModel.js";
 import BankAccount, { BankName } from "../models/BankAccount.js";
+import Notification from "../models/NotificationModel.js";
+import InvestmentPurchase from "../models/InvestmentPurchase.js";
+import InvestmentPlan from "../models/InvestmentPlan.js";
+import InvestmentCategory from "../models/InvestmentCategory.js";
 
 const generateJwtToken = (user) => {
   return jwt.sign(
@@ -655,13 +659,7 @@ export const updateBankAccount = async (req, res) => {
     const { id, bankNameId, accountNumber, ifscCode } = req.body;
 
     // Basic validation
-    if (
-      !id ||
-      !accountHolderName ||
-      !bankNameId ||
-      !accountNumber ||
-      !ifscCode
-    ) {
+    if (!id || !bankNameId || !accountNumber || !ifscCode) {
       return res
         .status(400)
         .json({ message: "All fields are required", status: false });
@@ -729,5 +727,465 @@ export const getBankNameById = async (req, res) => {
   } catch (error) {
     console.error("Error fetching bank name:", error);
     res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const getNotificationsByUserId = async (req, res) => {
+  const userId = req.user.id;
+  try {
+    const notifications = await Notification.find({ userId }).sort({
+      createdAt: -1,
+    }); // latest first
+    res.status(200).json({ success: true, data: notifications });
+  } catch (error) {
+    console.error("Error fetching notifications:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+export const updateProfileImage = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ status: false, message: "Unauthorized" });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ status: false, message: "User not found" });
+    }
+
+    const file = req.file || req.files?.profileImage?.[0];
+    if (!file) {
+      return res
+        .status(400)
+        .json({ status: false, message: "No profile image uploaded" });
+    }
+
+    user.profileImage = file.filename;
+    await user.save();
+
+    return res.status(200).json({
+      status: true,
+      message: "Profile image updated successfully",
+      profileImage: user.profileImage,
+    });
+  } catch (error) {
+    console.error("Error updating profile image:", error);
+    return res.status(500).json({
+      status: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+export const createInvestmentPurchase = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const { planId, amount, payoutFrequency } = req.body;
+
+    // Validate plan
+    const plan = await InvestmentPlan.findById(planId);
+    if (!plan) {
+      return res.status(404).json({ message: "Plan not found" });
+    }
+
+    // Check minimum amount
+    if (amount < plan.minAmount) {
+      return res.status(400).json({
+        message: `Minimum investment amount is ₹${plan.minAmount}`,
+      });
+    }
+
+    // Calculate dates
+    const startDate = new Date();
+    const endDate = new Date(startDate);
+    endDate.setMonth(startDate.getMonth() + plan.durationMonths);
+
+    // Save investment purchase
+    const purchase = await InvestmentPurchase.create({
+      userId,
+      planId,
+      amount,
+      payoutFrequency,
+      startDate,
+      endDate,
+    });
+
+    // 🧾 Create transaction record
+    const transactionId = generateTransactionId();
+    const transaction = await Transaction.create({
+      userId,
+      amount,
+      type: "investment",
+      status: "success",
+      transactionId,
+      description: `Invested ₹${amount} in ${plan.title}`,
+    });
+
+    // 🛎️ Send notification
+    const title = "Investment Successful";
+    const body = `You have successfully invested ₹${amount} in ${plan.title}.`;
+
+    try {
+      await addNotification(userId, title, body);
+
+      // Optional: Push notification
+      // const user = await User.findById(userId);
+      // if (user?.firebaseToken) {
+      //   await sendNotification(user.firebaseToken, title, body);
+      // }
+    } catch (notificationError) {
+      console.error("Notification Error:", notificationError);
+    }
+
+    res.status(201).json({
+      message: "Investment successful",
+      data: purchase,
+      transaction,
+    });
+  } catch (error) {
+    console.error("Error creating purchase:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const getInvestmentPurchasesInWeb = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const { page = 1, limit = 10 } = req.query;
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const filter = { userId };
+
+    const total = await InvestmentPurchase.countDocuments(filter);
+
+    const purchases = await InvestmentPurchase.find(filter)
+      .populate("planId")
+
+      .sort({ createdAt: -1 }) // Latest first
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    res.status(200).json({
+      message: "Investment purchases fetched successfully",
+      data: purchases,
+      pagination: {
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching purchases:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const getInvestmentPurchasesInApp = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+
+    const filter = { userId };
+
+    const purchases = await InvestmentPurchase.find(filter)
+      .populate("planId")
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      message: "Investment purchases fetched successfully",
+      data: purchases,
+    });
+  } catch (error) {
+    console.error("Error fetching purchases:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const getAllInvestmentPlansInWeb = async (req, res) => {
+  try {
+    const { categoryId, search = "", page = 1, limit = 10 } = req.query;
+
+    const filter = {};
+
+    // Filter by categoryId if provided
+    if (categoryId) {
+      filter.categoryId = categoryId;
+    }
+
+    // Search by title (case-insensitive)
+    if (search) {
+      filter.title = { $regex: search, $options: "i" };
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    // Get total count for pagination
+    const total = await InvestmentPlan.countDocuments(filter);
+
+    // Fetch data
+    const plans = await InvestmentPlan.find(filter)
+      .populate("categoryId")
+      .skip(skip)
+      .limit(parseInt(limit))
+      .sort({ createdAt: -1 }); // Latest first
+
+    res.status(200).json({
+      message: "Investment plans fetched successfully",
+      data: plans,
+      pagination: {
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Error fetching investment plans",
+      error: error.message,
+    });
+  }
+};
+
+export const getAllInvestmentPlansInApp = async (req, res) => {
+  try {
+    const plans = await InvestmentPlan.find().populate("categoryId");
+
+    res.status(200).json({
+      message: "Investment plans fetched successfully",
+      data: plans,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Error fetching investment plans",
+      error: error.message,
+    });
+  }
+};
+
+export const getInvestmentPlanById = async (req, res) => {
+  try {
+    const { id } = req.query;
+
+    const plan = await InvestmentPlan.findById(id).populate("categoryId");
+    if (!plan) {
+      return res.status(404).json({ message: "Investment plan not found" });
+    }
+
+    res.status(200).json({
+      message: "Investment plan fetched successfully",
+      data: plan,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Error fetching investment plan",
+      error: error.message,
+    });
+  }
+};
+
+export const getInvestmentPerformance = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const { timeRange = "30days" } = req.query;
+
+    // Get all purchases by user
+    const purchases = await InvestmentPurchase.find({ userId }).populate(
+      "planId"
+    );
+
+    if (!purchases.length) {
+      return res.status(200).json({
+        message: "No investment data found",
+        data: {
+          totalInvestment: 0,
+          currentValue: 0,
+          profitAmount: 0,
+          profitPercent: 0,
+          graphData: [],
+          xAxis: [],
+        },
+      });
+    }
+
+    // Total invested
+    const totalInvestment = purchases.reduce(
+      (acc, item) => acc + item.amount,
+      0
+    );
+
+    // Simulate current value (based on ROI and how much time has passed)
+    let currentValue = 0;
+    const graphData = [];
+    const xAxis = [];
+
+    const now = new Date();
+
+    let graphPoints =
+      {
+        "30days": 30,
+        "6months": 6,
+        "1year": 12,
+      }[timeRange] || 30;
+
+    for (let i = 0; i < graphPoints; i++) {
+      let pointValue = 0;
+      for (let purchase of purchases) {
+        const { amount, startDate, planId } = purchase;
+        const duration = planId.durationMonths;
+        const roi = planId.roi;
+
+        // Monthly ROI return simulation
+        const monthsPassed = Math.min(duration, i + 1);
+        const estimatedValue =
+          amount + (amount * roi * (monthsPassed / 12)) / 100;
+        pointValue += estimatedValue / graphPoints;
+      }
+      graphData.push(Math.round(pointValue));
+      xAxis.push(timeRange === "30days" ? i + 1 : `M${i + 1}`);
+    }
+
+    // Simulate current value based on full duration
+    for (let purchase of purchases) {
+      const { amount, planId, startDate } = purchase;
+      const roi = planId.roi;
+      const durationMonths = planId.durationMonths;
+
+      const monthsSinceStart =
+        (now.getFullYear() - startDate.getFullYear()) * 12 +
+        now.getMonth() -
+        startDate.getMonth();
+
+      const effectiveMonths = Math.min(monthsSinceStart, durationMonths);
+      const estimatedValue =
+        amount + (amount * roi * (effectiveMonths / 12)) / 100;
+      currentValue += estimatedValue;
+    }
+
+    const profitAmount = currentValue - totalInvestment;
+    const profitPercent = (profitAmount / totalInvestment) * 100;
+
+    res.status(200).json({
+      message: "Investment performance fetched successfully",
+      data: {
+        totalInvestment: Math.round(totalInvestment),
+        currentValue: Math.round(currentValue),
+        profitAmount: Math.round(profitAmount),
+        profitPercent: parseFloat(profitPercent.toFixed(2)),
+        graphData,
+        xAxis,
+      },
+    });
+  } catch (error) {
+    console.error("Error in investment performance:", error);
+    res.status(500).json({
+      message: "Failed to fetch investment performance",
+      error: error.message,
+    });
+  }
+};
+
+export const getInvestmentPerformanceChart = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const { timeRange = "30days" } = req.query;
+
+    // Fetch all purchases with populated plan details
+    const purchases = await InvestmentPurchase.find({ userId }).populate(
+      "planId"
+    );
+
+    if (!purchases.length) {
+      return res.status(200).json({
+        message: "No investments found",
+        data: { xAxis: [], series: [] },
+      });
+    }
+
+    // Determine number of points
+    const pointsCount =
+      timeRange === "30days" ? 30 : timeRange === "6months" ? 6 : 12;
+
+    // Build X-axis labels
+    const xAxis =
+      timeRange === "30days"
+        ? Array.from({ length: pointsCount }, (_, i) => i + 1)
+        : Array.from({ length: pointsCount }, (_, i) => `M${i + 1}`);
+
+    // Simulate value change per interval
+    const series = Array.from({ length: pointsCount }, (_, idx) => {
+      let total = 0;
+      purchases.forEach((p) => {
+        const invested = p.amount;
+        const roi = p.planId.roi;
+        const elapsedPoints = idx + 1; // e.g., days or months
+        const factor =
+          timeRange === "30days"
+            ? elapsedPoints / pointsCount
+            : elapsedPoints / 12;
+        total += invested + invested * (roi / 100) * factor;
+      });
+      return parseFloat((total / purchases.length).toFixed(2));
+    });
+
+    res.status(200).json({
+      message: "Performance data ready",
+      data: { xAxis, series },
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+};
+
+export const getPopularPlans = async (req, res) => {
+  try {
+    const plans = await InvestmentPlan.find({ isPopular: true })
+      .populate("categoryId")
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      message: "Popular investment plans fetched",
+      data: plans,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Error fetching popular plans",
+      error: error.message,
+    });
+  }
+};
+
+export const getFeaturedPlans = async (req, res) => {
+  try {
+    const plans = await InvestmentPlan.find({ isFeatured: true })
+      .populate("categoryId")
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      message: "Featured investment plans fetched",
+      data: plans,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Error fetching featured plans",
+      error: error.message,
+    });
+  }
+};
+
+export const getAllCategory = async (req, res) => {
+  try {
+    const categories = await InvestmentCategory.find().sort({ createdAt: -1 });
+    res.status(200).json({ message: "Categories fetched", data: categories });
+  } catch (error) {
+    res.status(500).json({
+      message: "Error fetching categories",
+      error: error.message,
+    });
   }
 };
