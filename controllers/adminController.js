@@ -768,7 +768,6 @@ export const getPlanById = async (req, res) => {
   }
 };
 
-
 export const updatePlanFlags = async (req, res) => {
   try {
     const { isPopular, isFeatured, planId } = req.body;
@@ -798,4 +797,3 @@ export const updatePlanFlags = async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 };
-

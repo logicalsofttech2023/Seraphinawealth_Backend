@@ -907,7 +907,7 @@ export const getInvestmentPurchasesInApp = async (req, res) => {
 
 export const getAllInvestmentPlansInWeb = async (req, res) => {
   try {
-    const { categoryId, search = "", page = 1, limit = 10 } = req.query;
+    const { categoryId, search = "", page = 1, limit = 10, userId } = req.query;
 
     const filter = {};
 
@@ -926,16 +926,34 @@ export const getAllInvestmentPlansInWeb = async (req, res) => {
     // Get total count for pagination
     const total = await InvestmentPlan.countDocuments(filter);
 
-    // Fetch data
+    // Fetch plans
     const plans = await InvestmentPlan.find(filter)
       .populate("categoryId")
       .skip(skip)
       .limit(parseInt(limit))
-      .sort({ createdAt: -1 }); // Latest first
+      .sort({ createdAt: -1 });
+
+    let updatedPlans = plans;
+
+    if (userId) {
+      // Get user's purchased planIds
+      const purchased = await InvestmentPurchase.find({ userId }).select(
+        "planId"
+      );
+      const purchasedPlanIds = purchased.map((p) => String(p.planId));
+
+      // Add isPurchased flag to each plan
+      updatedPlans = plans.map((plan) => {
+        return {
+          ...plan.toObject(),
+          isPurchased: purchasedPlanIds.includes(String(plan._id)),
+        };
+      });
+    }
 
     res.status(200).json({
       message: "Investment plans fetched successfully",
-      data: plans,
+      data: updatedPlans,
       pagination: {
         total,
         page: parseInt(page),
@@ -1110,11 +1128,24 @@ export const getInvestmentPerformanceChart = async (req, res) => {
     const pointsCount =
       timeRange === "30days" ? 30 : timeRange === "6months" ? 6 : 12;
 
+    // Helper: get past N month names
+    const getPastMonthNames = (count) => {
+      const now = new Date();
+      return Array.from({ length: count }, (_, i) => {
+        const date = new Date(
+          now.getFullYear(),
+          now.getMonth() - (count - i - 1),
+          1
+        );
+        return date.toLocaleString("default", { month: "short" }); // "Jan", "Feb", etc.
+      });
+    };
+
     // Build X-axis labels
     const xAxis =
       timeRange === "30days"
-        ? Array.from({ length: pointsCount }, (_, i) => i + 1)
-        : Array.from({ length: pointsCount }, (_, i) => `M${i + 1}`);
+        ? Array.from({ length: pointsCount }, (_, i) => `Day ${i + 1}`)
+        : getPastMonthNames(pointsCount);
 
     // Simulate value change per interval
     const series = Array.from({ length: pointsCount }, (_, idx) => {
@@ -1122,7 +1153,7 @@ export const getInvestmentPerformanceChart = async (req, res) => {
       purchases.forEach((p) => {
         const invested = p.amount;
         const roi = p.planId.roi;
-        const elapsedPoints = idx + 1; // e.g., days or months
+        const elapsedPoints = idx + 1; // days or months
         const factor =
           timeRange === "30days"
             ? elapsedPoints / pointsCount
@@ -1144,13 +1175,29 @@ export const getInvestmentPerformanceChart = async (req, res) => {
 
 export const getPopularPlans = async (req, res) => {
   try {
+    const { userId } = req.query;
+
     const plans = await InvestmentPlan.find({ isPopular: true })
       .populate("categoryId")
       .sort({ createdAt: -1 });
 
+    let updatedPlans = plans;
+
+    if (userId) {
+      const purchased = await InvestmentPurchase.find({ userId }).select(
+        "planId"
+      );
+      const purchasedPlanIds = purchased.map((p) => String(p.planId));
+
+      updatedPlans = plans.map((plan) => ({
+        ...plan.toObject(),
+        isPurchased: purchasedPlanIds.includes(String(plan._id)),
+      }));
+    }
+
     res.status(200).json({
       message: "Popular investment plans fetched",
-      data: plans,
+      data: updatedPlans,
     });
   } catch (error) {
     res.status(500).json({
@@ -1162,13 +1209,27 @@ export const getPopularPlans = async (req, res) => {
 
 export const getFeaturedPlans = async (req, res) => {
   try {
+    const { userId } = req.query;
+
     const plans = await InvestmentPlan.find({ isFeatured: true })
       .populate("categoryId")
       .sort({ createdAt: -1 });
 
+    let updatedPlans = plans;
+
+    if (userId) {
+      const purchased = await InvestmentPurchase.find({ userId }).select("planId");
+      const purchasedPlanIds = purchased.map(p => String(p.planId));
+
+      updatedPlans = plans.map(plan => ({
+        ...plan.toObject(),
+        isPurchased: purchasedPlanIds.includes(String(plan._id)),
+      }));
+    }
+
     res.status(200).json({
       message: "Featured investment plans fetched",
-      data: plans,
+      data: updatedPlans,
     });
   } catch (error) {
     res.status(500).json({
