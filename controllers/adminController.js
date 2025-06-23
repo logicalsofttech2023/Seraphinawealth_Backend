@@ -6,6 +6,10 @@ import { BankName } from "../models/BankAccount.js";
 import InvestmentCategory from "../models/InvestmentCategory.js";
 import InvestmentPlan from "../models/InvestmentPlan.js";
 import mongoose from "mongoose";
+import bcrypt from "bcrypt";
+import InvestmentPurchase from "../models/InvestmentPurchase.js";
+import User from "../models/UserModel.js";
+import ServiceType from "../models/ServiceType.js";
 
 const generateJwtToken = (user) => {
   return jwt.sign(
@@ -182,23 +186,23 @@ export const getAllUsers = async (req, res) => {
     page = parseInt(page);
     limit = parseInt(limit);
 
-    let searchFilter = { role: "user", name: { $exists: true, $ne: "" } };
+    let searchFilter = { role: "user", firstName: { $exists: true, $ne: "" } };
     if (search) {
       searchFilter = {
         $or: [
-          { name: { $regex: search, $options: "i" } },
-          { email: { $regex: search, $options: "i" } },
+          { firstName: { $regex: search, $options: "i" } },
+          { userEmail: { $regex: search, $options: "i" } },
           { phone: { $regex: search, $options: "i" } },
         ],
       };
     }
 
-    if (status) {
+    if (status !== undefined) {
       searchFilter.status = status === "true";
     }
 
     const users = await User.find(searchFilter)
-      .select("-otp -otpExpiresAt -password")
+      .select("-otp -otpExpiresAt")
       .skip((page - 1) * limit)
       .limit(limit)
       .sort({ createdAt: -1 });
@@ -215,6 +219,61 @@ export const getAllUsers = async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching users:", error);
+    res.status(500).json({
+      message: "Internal Server Error",
+      status: false,
+      error: error.message,
+    });
+  }
+};
+
+export const getUsersWithInvestment = async (req, res) => {
+  try {
+    let { page = 1, limit = 10, search = "", status } = req.query;
+    page = parseInt(page);
+    limit = parseInt(limit);
+
+    // Step 1: Get unique userIds who have made an investment
+    const investmentUserIds = await InvestmentPurchase.distinct("userId");
+
+    // Step 2: Build search filter
+    let searchFilter = {
+      _id: { $in: investmentUserIds },
+      role: "user",
+      firstName: { $exists: true, $ne: "" },
+    };
+
+    if (search) {
+      searchFilter.$or = [
+        { firstName: { $regex: search, $options: "i" } },
+        { userEmail: { $regex: search, $options: "i" } },
+        { phone: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    if (status !== undefined) {
+      searchFilter.status = status === "true";
+    }
+
+    // Step 3: Query users
+    const users = await User.find(searchFilter)
+      .select("-otp -otpExpiresAt -password")
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .sort({ createdAt: -1 });
+
+    const totalUsers = await User.countDocuments(searchFilter);
+
+    res.status(200).json({
+      message: "Users with investment fetched successfully",
+      status: true,
+      data: users,
+      totalUsers,
+      totalPages: Math.ceil(totalUsers / limit),
+      currentPage: page,
+    });
+  } catch (error) {
+    console.error("Error fetching users with investment:", error);
     res.status(500).json({
       message: "Internal Server Error",
       status: false,
@@ -781,7 +840,7 @@ export const updatePlanFlags = async (req, res) => {
     }
 
     const updated = await InvestmentPlan.findByIdAndUpdate(planId, updateData, {
-      new: true
+      new: true,
     });
 
     if (!updated) {
@@ -790,10 +849,90 @@ export const updatePlanFlags = async (req, res) => {
 
     res.status(200).json({
       message: "Plan updated successfully",
-      data: updated
+      data: updated,
     });
   } catch (error) {
     console.error("Update error:", error);
     res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const addServiceType = async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name) return res.status(400).json({ message: "Name is required" });
+
+    const exists = await ServiceType.findOne({ name });
+    if (exists)
+      return res.status(409).json({ message: "Service already exists" });
+
+    const newService = await ServiceType.create({ name });
+    res.status(201).json({ message: "Service type added", data: newService });
+  } catch (err) {
+    res
+      .status(500)
+      .json({ message: "Error adding service", error: err.message });
+  }
+};
+
+export const getAllServiceTypes = async (req, res) => {
+  try {
+    const services = await ServiceType.find().sort({ createdAt: -1 });
+    res
+      .status(200)
+      .json({ message: "Fetched all service types", data: services });
+  } catch (err) {
+    res
+      .status(500)
+      .json({ message: "Error fetching services", error: err.message });
+  }
+};
+
+export const getServiceTypeById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const service = await ServiceType.findById(id);
+    if (!service) return res.status(404).json({ message: "Service not found" });
+
+    res.status(200).json({ message: "Fetched service type", data: service });
+  } catch (err) {
+    res
+      .status(500)
+      .json({ message: "Error fetching service", error: err.message });
+  }
+};
+
+export const updateServiceType = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name } = req.body;
+
+    const updated = await ServiceType.findByIdAndUpdate(
+      id,
+      { name },
+      { new: true, runValidators: true }
+    );
+
+    if (!updated) return res.status(404).json({ message: "Service not found" });
+
+    res.status(200).json({ message: "Service type updated", data: updated });
+  } catch (err) {
+    res
+      .status(500)
+      .json({ message: "Error updating service", error: err.message });
+  }
+};
+
+export const deleteServiceType = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deleted = await ServiceType.findByIdAndDelete(id);
+    if (!deleted) return res.status(404).json({ message: "Service not found" });
+
+    res.status(200).json({ message: "Service type deleted", data: deleted });
+  } catch (err) {
+    res
+      .status(500)
+      .json({ message: "Error deleting service", error: err.message });
   }
 };

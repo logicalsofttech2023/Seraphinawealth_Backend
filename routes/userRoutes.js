@@ -34,7 +34,7 @@ import {
   getAllCategory,
 } from "../controllers/userController.js";
 
-import authMiddleware from "../middlewares/authMiddleware.js";
+import {authMiddleware, optionalAuthMiddleware} from "../middlewares/authMiddleware.js";
 import { uploadProfile } from "../middlewares/uploadMiddleware.js";
 
 const router = express.Router();
@@ -102,16 +102,16 @@ router.get("/getBankNameById", getBankNameById);
    📈 Investment Plans & Purchases
 ---------------------------------- */
 router.post("/createInvestmentPurchase", authMiddleware, createInvestmentPurchase);
-router.get("/getAllInvestmentPlansInWeb", authMiddleware, getAllInvestmentPlansInWeb);
-router.get("/getAllInvestmentPlansInApp", authMiddleware, getAllInvestmentPlansInApp);
-router.get("/getInvestmentPlanById", authMiddleware, getInvestmentPlanById);
-router.get("/getInvestmentPurchasesInWeb", authMiddleware, getInvestmentPurchasesInWeb);
-router.get("/getInvestmentPurchasesInApp", authMiddleware, getInvestmentPurchasesInApp);
+router.get("/getAllInvestmentPlansInWeb", optionalAuthMiddleware, getAllInvestmentPlansInWeb);
+router.get("/getAllInvestmentPlansInApp", optionalAuthMiddleware, getAllInvestmentPlansInApp);
+router.get("/getInvestmentPlanById", optionalAuthMiddleware, getInvestmentPlanById);
+router.get("/getInvestmentPurchasesInWeb", optionalAuthMiddleware, getInvestmentPurchasesInWeb);
+router.get("/getInvestmentPurchasesInApp", optionalAuthMiddleware, getInvestmentPurchasesInApp);
 router.get("/getInvestmentPerformance", authMiddleware, getInvestmentPerformance);
 router.get("/getInvestmentPerformanceChart", authMiddleware, getInvestmentPerformanceChart);
-router.get("/getPopularPlans", authMiddleware, getPopularPlans);
-router.get("/getFeaturedPlans", authMiddleware, getFeaturedPlans);
-router.get("/getAllCategory", authMiddleware, getAllCategory);
+router.get("/getPopularPlans", optionalAuthMiddleware, getPopularPlans);
+router.get("/getFeaturedPlans", optionalAuthMiddleware, getFeaturedPlans);
+router.get("/getAllCategory", getAllCategory);
 
 /* ----------------------------------
    🔔 Notifications

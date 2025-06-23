@@ -907,7 +907,8 @@ export const getInvestmentPurchasesInApp = async (req, res) => {
 
 export const getAllInvestmentPlansInWeb = async (req, res) => {
   try {
-    const { categoryId, search = "", page = 1, limit = 10, userId } = req.query;
+    const userId = req.user?.id;
+    const { categoryId, search = "", page = 1, limit = 10 } = req.query;
 
     const filter = {};
 
@@ -988,15 +989,33 @@ export const getAllInvestmentPlansInApp = async (req, res) => {
 export const getInvestmentPlanById = async (req, res) => {
   try {
     const { id } = req.query;
+    const userId = req.user?.id;
 
     const plan = await InvestmentPlan.findById(id).populate("categoryId");
+
     if (!plan) {
       return res.status(404).json({ message: "Investment plan not found" });
     }
 
+    let isPurchased = false;
+
+    if (userId) {
+      const purchased = await InvestmentPurchase.findOne({
+        userId,
+        planId: id,
+      });
+
+      if (purchased) {
+        isPurchased = true;
+      }
+    }
+
     res.status(200).json({
       message: "Investment plan fetched successfully",
-      data: plan,
+      data: {
+        ...plan.toObject(),
+        isPurchased,
+      },
     });
   } catch (error) {
     res.status(500).json({
@@ -1005,6 +1024,7 @@ export const getInvestmentPlanById = async (req, res) => {
     });
   }
 };
+
 
 export const getInvestmentPerformance = async (req, res) => {
   try {
@@ -1175,7 +1195,7 @@ export const getInvestmentPerformanceChart = async (req, res) => {
 
 export const getPopularPlans = async (req, res) => {
   try {
-    const { userId } = req.query;
+    const userId = req.user?.id;
 
     const plans = await InvestmentPlan.find({ isPopular: true })
       .populate("categoryId")
@@ -1209,7 +1229,7 @@ export const getPopularPlans = async (req, res) => {
 
 export const getFeaturedPlans = async (req, res) => {
   try {
-    const { userId } = req.query;
+    const userId = req.user?.id;
 
     const plans = await InvestmentPlan.find({ isFeatured: true })
       .populate("categoryId")

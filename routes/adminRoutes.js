@@ -28,9 +28,11 @@ import {
   getAllPlans,
   getPlanById,
   updatePlanFlags,
+  getAllUsers,
+  getUsersWithInvestment,
 } from "../controllers/adminController.js";
 
-import authMiddleware from "../middlewares/authMiddleware.js";
+import {authMiddleware} from "../middlewares/authMiddleware.js";
 import { uploadProfile } from "../middlewares/uploadMiddleware.js";
 
 const router = express.Router();
@@ -106,5 +108,12 @@ router.get("/getAllPlans", authMiddleware, getAllPlans);
 router.get("/getPlanById", authMiddleware, getPlanById);
 router.post("/updatePlanFlags", authMiddleware, updatePlanFlags);
 
+/* ----------------------------------
+   📈 Users Management
+---------------------------------- */
+router.get("/getAllUsers", authMiddleware, getAllUsers);
+router.get("/getUsersWithInvestment", authMiddleware, getUsersWithInvestment);
+
+   
 
 export default router;
