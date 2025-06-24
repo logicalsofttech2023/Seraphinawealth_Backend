@@ -12,6 +12,12 @@ import Notification from "../models/NotificationModel.js";
 import InvestmentPurchase from "../models/InvestmentPurchase.js";
 import InvestmentPlan from "../models/InvestmentPlan.js";
 import InvestmentCategory from "../models/InvestmentCategory.js";
+import ServiceType from "../models/ServiceType.js";
+import AgreementForm from "../models/AgreementForm.js";
+import AgreementContent from "../models/AgreementContent.js";
+import NewsletterSubscriber from "../models/NewsletterSubscriber.js";
+import ResearchAnalysis from "../models/ResearchAnalysis.js";
+import Contact from "../models/Contact.js";
 
 const generateJwtToken = (user) => {
   return jwt.sign(
@@ -1025,7 +1031,6 @@ export const getInvestmentPlanById = async (req, res) => {
   }
 };
 
-
 export const getInvestmentPerformance = async (req, res) => {
   try {
     const userId = req.user?.id;
@@ -1238,10 +1243,12 @@ export const getFeaturedPlans = async (req, res) => {
     let updatedPlans = plans;
 
     if (userId) {
-      const purchased = await InvestmentPurchase.find({ userId }).select("planId");
-      const purchasedPlanIds = purchased.map(p => String(p.planId));
+      const purchased = await InvestmentPurchase.find({ userId }).select(
+        "planId"
+      );
+      const purchasedPlanIds = purchased.map((p) => String(p.planId));
 
-      updatedPlans = plans.map(plan => ({
+      updatedPlans = plans.map((plan) => ({
         ...plan.toObject(),
         isPurchased: purchasedPlanIds.includes(String(plan._id)),
       }));
@@ -1268,5 +1275,222 @@ export const getAllCategory = async (req, res) => {
       message: "Error fetching categories",
       error: error.message,
     });
+  }
+};
+
+export const getServiceTypes = async (req, res) => {
+  try {
+    const services = await ServiceType.find().sort({ createdAt: -1 });
+    res
+      .status(200)
+      .json({ message: "Fetched all service types", data: services });
+  } catch (err) {
+    res
+      .status(500)
+      .json({ message: "Error fetching services", error: err.message });
+  }
+};
+
+export const submitAgreementForm = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const {
+      serviceTypeId,
+      deliveryPreference,
+      amount,
+      paymentStatus,
+      serviceChoice,
+    } = req.body;
+
+    if (!serviceTypeId || !deliveryPreference || !amount) {
+      return res
+        .status(400)
+        .json({ status: false, message: "All fields are required" });
+    }
+
+    // 1️⃣ Validate Service Type
+    const service = await ServiceType.findById(serviceTypeId);
+    if (!service) {
+      return res
+        .status(404)
+        .json({ status: false, message: "Invalid service type" });
+    }
+
+    // 2️⃣ Save/Update Agreement Form
+    const agreement = await AgreementForm.findOneAndUpdate(
+      { userId },
+      {
+        serviceTypeId,
+        deliveryPreference,
+        paymentStatus,
+        serviceChoice,
+      },
+      { new: true, upsert: true }
+    );
+
+    // 3️⃣ Create Transaction
+    const transactionId = generateTransactionId();
+    const transaction = await Transaction.create({
+      userId,
+      amount,
+      type: "consultation",
+      status: "success",
+      transactionId,
+      description: `Consultation fee paid for ${service.name}`,
+    });
+
+    // 4️⃣ Send Notification
+    const title = "Consultation Started";
+    const body = `You have successfully subscribed to ${service.name} service.`;
+
+    await addNotification(userId, title, body);
+
+    // ✅ Final Response
+    res.status(200).json({
+      status: true,
+      message: "Agreement form submitted and payment recorded successfully",
+      data: {
+        agreement,
+        transaction,
+      },
+    });
+  } catch (error) {
+    console.error("Agreement Error:", error);
+    res.status(500).json({
+      status: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+export const checkAgreementForm = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const agreement = await AgreementForm.findOne({ userId });
+
+    if (!agreement) {
+      return res.status(200).json({
+        status: false,
+        message: "Agreement form not submitted",
+        data: null,
+      });
+    }
+
+    res.status(200).json({
+      status: true,
+      message: "Agreement form found",
+      data: agreement,
+    });
+  } catch (error) {
+    console.error("Check Agreement Error:", error);
+    res.status(500).json({
+      status: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+export const getAgreementForm = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const agreement = await AgreementForm.findOne({ userId });
+
+    if (!agreement) {
+      return res
+        .status(404)
+        .json({ status: false, message: "Agreement form not found" });
+    }
+    res.status(200).json({
+      status: true,
+      message: "Agreement form fetched successfully",
+      data: agreement,
+    });
+  } catch (error) {
+    console.log(error);
+  }
+};
+
+export const getAgreementContent = async (req, res) => {
+  try {
+    const content = await AgreementContent.findOne();
+
+    res.status(200).json({
+      status: true,
+      message: "Agreement content fetched successfully",
+      data: content,
+    });
+  } catch (error) {
+    res.status(500).json({ status: false, message: "Server error", error });
+  }
+};
+
+export const subscribeNewsletter = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Email is required" });
+    }
+
+    // check if already subscribed
+    const alreadySubscribed = await NewsletterSubscriber.findOne({ email });
+
+    const subscriber = await User.findOne({ userEmail: email });
+
+    if (subscriber) {
+      return res
+        .status(409)
+        .json({ success: false, message: "Already subscribed" });
+    }
+    if (alreadySubscribed) {
+      return res
+        .status(409)
+        .json({ success: false, message: "Already subscribed" });
+    }
+
+    const newSubscriber = new NewsletterSubscriber({ email });
+    await newSubscriber.save();
+
+    res.status(200).json({ success: true, message: "Subscribed successfully" });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ success: false, message: "Something went wrong", error });
+  }
+};
+
+export const getAllResearchAnalysis = async (req, res) => {
+  try {
+    const data = await ResearchAnalysis.findOne().sort({ createdAt: -1 });
+    res
+      .status(200)
+      .json({ success: true, message: "Fetched successfully", data });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Unable to fetch research analysis",
+    });
+  }
+};
+
+export const createContact = async (req, res) => {
+  try {
+    const { firstName, lastName, phone, email, message } = req.body;
+
+    if (!firstName || !lastName || !phone || !email || !message) {
+      return res.status(400).json({ success: false, message: "All fields are required" });
+    }
+
+    const newContact = new Contact({ firstName, lastName, phone, email, message });
+    await newContact.save();
+
+    res.status(200).json({ success: true, message: "Message submitted successfully" });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Server Error", error: err.message });
   }
 };

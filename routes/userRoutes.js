@@ -32,6 +32,13 @@ import {
   getPopularPlans,
   getFeaturedPlans,
   getAllCategory,
+  getServiceTypes,
+  submitAgreementForm,
+  checkAgreementForm,
+  getAgreementContent,
+  subscribeNewsletter,
+  getAllResearchAnalysis,
+  createContact,
 } from "../controllers/userController.js";
 
 import {authMiddleware, optionalAuthMiddleware} from "../middlewares/authMiddleware.js";
@@ -124,5 +131,16 @@ router.get("/getNotificationsByUserId", authMiddleware, getNotificationsByUserId
 router.get("/getPolicyByType", getPolicyByType);
 router.get("/getFAQList", getFAQList);
 router.get("/getFAQByFaqId", getFAQByFaqId);
+router.get("/getServiceTypes", getServiceTypes);
+router.get("/getAgreementContent", getAgreementContent);
+router.post("/submitAgreementForm", authMiddleware, submitAgreementForm);
+router.get("/checkAgreementForm",authMiddleware, checkAgreementForm);
+router.post("/subscribeNewsletter", subscribeNewsletter);
+router.get("/getAllResearchAnalysis", getAllResearchAnalysis);
+router.post("/createContact", createContact);
+
+
+
+
 
 export default router;

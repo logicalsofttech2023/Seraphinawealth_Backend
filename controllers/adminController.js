@@ -10,6 +10,16 @@ import bcrypt from "bcrypt";
 import InvestmentPurchase from "../models/InvestmentPurchase.js";
 import User from "../models/UserModel.js";
 import ServiceType from "../models/ServiceType.js";
+import AgreementForm from "../models/AgreementForm.js";
+import AgreementContent from "../models/AgreementContent.js";
+import NewsletterSubscriber from "../models/NewsletterSubscriber.js";
+import ResearchAnalysis from "../models/ResearchAnalysis.js";
+import fs from "fs";
+import path from "path";
+import Contact from "../models/Contact.js";
+
+const ALLOWED_EXTENSIONS = /\.(pdf|doc|docx|txt)$/i;
+const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
 
 const generateJwtToken = (user) => {
   return jwt.sign(
@@ -890,7 +900,7 @@ export const getAllServiceTypes = async (req, res) => {
 
 export const getServiceTypeById = async (req, res) => {
   try {
-    const { id } = req.params;
+    const { id } = req.query;
     const service = await ServiceType.findById(id);
     if (!service) return res.status(404).json({ message: "Service not found" });
 
@@ -904,8 +914,7 @@ export const getServiceTypeById = async (req, res) => {
 
 export const updateServiceType = async (req, res) => {
   try {
-    const { id } = req.params;
-    const { name } = req.body;
+    const { name, id } = req.body;
 
     const updated = await ServiceType.findByIdAndUpdate(
       id,
@@ -925,7 +934,7 @@ export const updateServiceType = async (req, res) => {
 
 export const deleteServiceType = async (req, res) => {
   try {
-    const { id } = req.params;
+    const { id } = req.query;
     const deleted = await ServiceType.findByIdAndDelete(id);
     if (!deleted) return res.status(404).json({ message: "Service not found" });
 
@@ -934,5 +943,239 @@ export const deleteServiceType = async (req, res) => {
     res
       .status(500)
       .json({ message: "Error deleting service", error: err.message });
+  }
+};
+
+export const updateAgreementContent = async (req, res) => {
+  try {
+    const { content, amount } = req.body;
+
+    if (!content || !amount) {
+      return res
+        .status(400)
+        .json({ status: false, message: "Content and amount are required" });
+    }
+
+    const existing = await AgreementContent.findOne();
+
+    if (existing) {
+      existing.content = content;
+      existing.amount = amount;
+      await existing.save();
+    } else {
+      await AgreementContent.create({ content, amount });
+    }
+
+    res
+      .status(200)
+      .json({ status: true, message: "Agreement content saved successfully" });
+  } catch (error) {
+    res.status(500).json({ status: false, message: "Server error", error });
+  }
+};
+
+export const getAgreementContentInAdmin = async (req, res) => {
+  try {
+    const content = await AgreementContent.findOne();
+
+    res.status(200).json({
+      status: true,
+      message: "Agreement content fetched successfully",
+      data: content,
+    });
+  } catch (error) {
+    res.status(500).json({ status: false, message: "Server error", error });
+  }
+};
+
+export const getAllSubscribers = async (req, res) => {
+  try {
+    const subscribers = await NewsletterSubscriber.find().sort({
+      createdAt: -1,
+    });
+    res.status(200).json({ success: true, subscribers });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to fetch subscribers", error });
+  }
+};
+
+export const deleteSubscriber = async (req, res) => {
+  try {
+    const { id } = req.query;
+    await NewsletterSubscriber.findByIdAndDelete(id);
+    res.status(200).json({ success: true, message: "Subscriber removed" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Deletion failed", error });
+  }
+};
+
+export const addOrUpdateResearchAnalysis = async (req, res) => {
+  try {
+    const { id = "", title = "", description = "" } = req.body;
+    const file = req.files?.file?.[0];
+
+    // Validate fields
+    if (!title || !description) {
+      return res.status(400).json({
+        success: false,
+        message: "Title and description are required.",
+      });
+    }
+
+    let documentFilename;
+
+    if (file) {
+      if (!ALLOWED_EXTENSIONS.test(file.originalname)) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Invalid file type. Only PDF, DOC, DOCX, and TXT are allowed.",
+        });
+      }
+
+      if (file.size > MAX_FILE_SIZE) {
+        return res.status(400).json({
+          success: false,
+          message: "File size exceeds the 20MB limit.",
+        });
+      }
+
+      documentFilename = file.filename;
+    }
+
+    if (id) {
+      // UPDATE
+      const existingDoc = await ResearchAnalysis.findById(id);
+
+      if (!existingDoc) {
+        return res.status(404).json({
+          success: false,
+          message: "Document not found.",
+        });
+      }
+
+      existingDoc.title = title.trim();
+      existingDoc.description = description.trim();
+      if (documentFilename) existingDoc.document = documentFilename;
+
+      await existingDoc.save();
+
+      return res.status(200).json({
+        success: true,
+        message: "Research analysis updated successfully.",
+        data: existingDoc,
+      });
+    } else {
+      // ADD
+      if (!documentFilename) {
+        return res.status(400).json({
+          success: false,
+          message: "Document file is required.",
+        });
+      }
+
+      const newDoc = new ResearchAnalysis({
+        title: title.trim(),
+        description: description.trim(),
+        document: documentFilename,
+      });
+
+      await newDoc.save();
+
+      return res.status(201).json({
+        success: true,
+        message: "Research analysis uploaded successfully.",
+        data: newDoc,
+      });
+    }
+  } catch (error) {
+    console.error("Error in addOrUpdateResearchAnalysis:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong.",
+    });
+  }
+};
+
+export const getAllResearchAnalysisInAdmin = async (req, res) => {
+  try {
+    const data = await ResearchAnalysis.findOne().sort({ createdAt: -1 });
+    res
+      .status(200)
+      .json({ success: true, message: "Fetched successfully", data });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Unable to fetch research analysis",
+    });
+  }
+};
+
+export const getResearchAnalysisById = async (req, res) => {
+  try {
+    const { id } = req.query;
+
+    if (!id || id.length !== 24) {
+      return res.status(400).json({ success: false, message: "Invalid ID" });
+    }
+
+    const item = await ResearchAnalysis.findById(id);
+    if (!item) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Research analysis not found" });
+    }
+
+    res.status(200).json({ success: true, data: item });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Fetch failed" });
+  }
+};
+
+export const deleteResearchAnalysis = async (req, res) => {
+  try {
+    const { id } = req.query;
+
+    if (!id) {
+      return res.status(400).json({ success: false, message: "Invalid ID" });
+    }
+
+    const doc = await ResearchAnalysis.findByIdAndDelete(id);
+    if (!doc) {
+      return res.status(404).json({ success: false, message: "Not found" });
+    }
+
+    // Remove file
+    const filePath = path.join("uploads", doc.document);
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+
+    res.status(200).json({
+      success: true,
+      message: "Deleted successfully",
+    });
+  } catch (error) {
+    console.error("Delete error:", error);
+    res.status(500).json({ success: false, message: "Delete failed" });
+  }
+};
+
+export const getAllContacts = async (req, res) => {
+  try {
+    const contacts = await Contact.find().sort({ createdAt: -1 });
+    res.status(200).json({ success: true, data: contacts });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Server Error", error: err.message });
+  }
+};
+
+export const deleteContact = async (req, res) => {
+  try {
+    const { id } = req.params;
+    await Contact.findByIdAndDelete(id);
+    res.status(200).json({ success: true, message: "Contact deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Error deleting contact", error: err.message });
   }
 };
