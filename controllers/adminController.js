@@ -237,6 +237,58 @@ export const getAllUsers = async (req, res) => {
   }
 };
 
+export const getUsersWithPaidAgreement = async (req, res) => {
+  try {
+    let { page = 1, limit = 10, search = "" } = req.query;
+    page = parseInt(page);
+    limit = parseInt(limit);
+    const skip = (page - 1) * limit;
+
+    // Step 1: Find agreements with paid service
+    const filter = { serviceChoice: "paid" };
+
+    // Step 2: Populate user and apply search filter
+    const agreements = await AgreementForm.find(filter)
+      .populate({
+        path: "userId",
+        match: {
+          $or: [
+            { firstName: { $regex: search, $options: "i" } },
+            { userEmail: { $regex: search, $options: "i" } },
+            { phone: { $regex: search, $options: "i" } },
+          ],
+        },
+      })
+      .skip(skip)
+      .limit(limit);
+
+    // Step 3: Filter out null users (due to unmatched search)
+    const users = agreements.map((a) => a.userId).filter((u) => u !== null);
+
+    // Step 4: Total count for pagination
+    const totalAgreements = await AgreementForm.countDocuments(filter);
+
+    res.status(200).json({
+      status: true,
+      message: "Users with paid service agreement",
+      data: users,
+      pagination: {
+        total: totalAgreements,
+        page,
+        limit,
+        totalPages: Math.ceil(totalAgreements / limit),
+      },
+    });
+  } catch (error) {
+    console.error("Fetch Paid Users Error:", error);
+    res.status(500).json({
+      status: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
 export const getUsersWithInvestment = async (req, res) => {
   try {
     let { page = 1, limit = 10, search = "", status } = req.query;
@@ -295,6 +347,8 @@ export const getUsersWithInvestment = async (req, res) => {
 export const policyUpdate = async (req, res) => {
   try {
     const { type, content } = req.body;
+    const image = req.files?.image?.[0]?.filename || "";
+
     if (!type || !content) {
       return res
         .status(400)
@@ -302,18 +356,30 @@ export const policyUpdate = async (req, res) => {
     }
 
     let policy = await Policy.findOne({ type });
+
     if (policy) {
       policy.content = content;
+      if (image) {
+        policy.image = image; // update image only if new one is uploaded
+      }
       await policy.save();
-      return res
-        .status(200)
-        .json({ message: "Policy updated successfully", status: true, policy });
+      return res.status(200).json({
+        message: "Policy updated successfully",
+        status: true,
+        policy,
+      });
     } else {
-      policy = new Policy({ type, content });
+      policy = new Policy({
+        type,
+        content,
+        ...(image && { image }), // set image only if exists
+      });
       await policy.save();
-      return res
-        .status(200)
-        .json({ message: "Policy created successfully", status: true, policy });
+      return res.status(200).json({
+        message: "Policy created successfully",
+        status: true,
+        policy,
+      });
     }
   } catch (error) {
     console.error("Error updating policy:", error);
@@ -877,7 +943,7 @@ export const addServiceType = async (req, res) => {
       return res.status(409).json({ message: "Service already exists" });
 
     const newService = await ServiceType.create({ name });
-    res.status(201).json({ message: "Service type added", data: newService });
+    res.status(200).json({ message: "Service type added", data: newService });
   } catch (err) {
     res
       .status(500)
@@ -887,14 +953,36 @@ export const addServiceType = async (req, res) => {
 
 export const getAllServiceTypes = async (req, res) => {
   try {
-    const services = await ServiceType.find().sort({ createdAt: -1 });
-    res
-      .status(200)
-      .json({ message: "Fetched all service types", data: services });
+    const { search = "", page = 1, limit = 10 } = req.query;
+
+    const query = {
+      name: { $regex: search, $options: "i" }, // assuming 'name' is the searchable field
+    };
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const [services, total] = await Promise.all([
+      ServiceType.find(query)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(parseInt(limit)),
+      ServiceType.countDocuments(query),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      message: "Fetched service types successfully",
+      data: services,
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(total / limit),
+      totalItems: total,
+    });
   } catch (err) {
-    res
-      .status(500)
-      .json({ message: "Error fetching services", error: err.message });
+    res.status(500).json({
+      success: false,
+      message: "Error fetching services",
+      error: err.message,
+    });
   }
 };
 
@@ -914,7 +1002,8 @@ export const getServiceTypeById = async (req, res) => {
 
 export const updateServiceType = async (req, res) => {
   try {
-    const { name, id } = req.body;
+    const { id } = req.query;
+    const { name } = req.body;
 
     const updated = await ServiceType.findByIdAndUpdate(
       id,
@@ -990,14 +1079,36 @@ export const getAgreementContentInAdmin = async (req, res) => {
 
 export const getAllSubscribers = async (req, res) => {
   try {
-    const subscribers = await NewsletterSubscriber.find().sort({
-      createdAt: -1,
+    const { search = "", page = 1, limit = 10 } = req.query;
+
+    const query = {
+      email: { $regex: search, $options: "i" }, // assuming search is on the email field
+    };
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const [subscribers, total] = await Promise.all([
+      NewsletterSubscriber.find(query)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(parseInt(limit)),
+      NewsletterSubscriber.countDocuments(query),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      message: "Fetched subscribers successfully",
+      subscribers,
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(total / limit),
+      totalItems: total,
     });
-    res.status(200).json({ success: true, subscribers });
   } catch (error) {
-    res
-      .status(500)
-      .json({ success: false, message: "Failed to fetch subscribers", error });
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch subscribers",
+      error: error.message,
+    });
   }
 };
 
@@ -1016,7 +1127,7 @@ export const addOrUpdateResearchAnalysis = async (req, res) => {
     const { id = "", title = "", description = "" } = req.body;
     const file = req.files?.file?.[0];
 
-    // Validate fields
+    // Validate required fields
     if (!title || !description) {
       return res.status(400).json({
         success: false,
@@ -1058,7 +1169,11 @@ export const addOrUpdateResearchAnalysis = async (req, res) => {
 
       existingDoc.title = title.trim();
       existingDoc.description = description.trim();
-      if (documentFilename) existingDoc.document = documentFilename;
+
+      // Only update file if new one is provided
+      if (documentFilename) {
+        existingDoc.document = documentFilename;
+      }
 
       await existingDoc.save();
 
@@ -1068,11 +1183,11 @@ export const addOrUpdateResearchAnalysis = async (req, res) => {
         data: existingDoc,
       });
     } else {
-      // ADD
+      // ADD - require document
       if (!documentFilename) {
         return res.status(400).json({
           success: false,
-          message: "Document file is required.",
+          message: "Document file is required for upload.",
         });
       }
 
@@ -1163,19 +1278,56 @@ export const deleteResearchAnalysis = async (req, res) => {
 
 export const getAllContacts = async (req, res) => {
   try {
-    const contacts = await Contact.find().sort({ createdAt: -1 });
-    res.status(200).json({ success: true, data: contacts });
+    const { search = "", page = 1, limit = 10 } = req.query;
+
+    const query = {
+      $or: [
+        { firstName: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
+        { phone: { $regex: search, $options: "i" } },
+        { message: { $regex: search, $options: "i" } },
+      ],
+    };
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const [contacts, total] = await Promise.all([
+      Contact.find(query)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(parseInt(limit)),
+      Contact.countDocuments(query),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      message: "Fetched contacts successfully",
+      data: contacts,
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(total / limit),
+      totalItems: total,
+    });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Server Error", error: err.message });
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+      error: err.message,
+    });
   }
 };
 
 export const deleteContact = async (req, res) => {
   try {
-    const { id } = req.params;
+    const { id } = req.query;
     await Contact.findByIdAndDelete(id);
-    res.status(200).json({ success: true, message: "Contact deleted successfully" });
+    res
+      .status(200)
+      .json({ success: true, message: "Contact deleted successfully" });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Error deleting contact", error: err.message });
+    res.status(500).json({
+      success: false,
+      message: "Error deleting contact",
+      error: err.message,
+    });
   }
 };

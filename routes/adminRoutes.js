@@ -41,6 +41,11 @@ import {
   getResearchAnalysisById,
   deleteResearchAnalysis,
   addOrUpdateResearchAnalysis,
+  getUsersWithPaidAgreement,
+  getAllSubscribers,
+  deleteSubscriber,
+  getAllContacts,
+  deleteContact,
 } from "../controllers/adminController.js";
 
 import { authMiddleware } from "../middlewares/authMiddleware.js";
@@ -60,7 +65,11 @@ router.post("/updateAdminDetail", authMiddleware, updateAdminDetail);
 /* ---------------------------------------------
  📄 Privacy & Terms Policy
 ----------------------------------------------*/
-router.post("/policyUpdate", policyUpdate);
+router.post(
+  "/policyUpdate",
+  uploadProfile.fields([{ name: "image", maxCount: 1 }]),
+  policyUpdate
+);
 router.get("/getPolicy", authMiddleware, getPolicy);
 
 /* ---------------------------------------------
@@ -124,6 +133,11 @@ router.post("/updatePlanFlags", authMiddleware, updatePlanFlags);
 ----------------------------------------------*/
 router.get("/getAllUsers", authMiddleware, getAllUsers);
 router.get("/getUsersWithInvestment", authMiddleware, getUsersWithInvestment);
+router.get(
+  "/getUsersWithPaidAgreement",
+  authMiddleware,
+  getUsersWithPaidAgreement
+);
 
 /* ---------------------------------------------
  📦 Service Type Management
@@ -138,7 +152,11 @@ router.post("/deleteServiceType", authMiddleware, deleteServiceType);
  📜 Agreement Content Management
 ----------------------------------------------*/
 router.post("/updateAgreementContent", authMiddleware, updateAgreementContent);
-router.get("/getAgreementContentInAdmin", authMiddleware, getAgreementContentInAdmin);
+router.get(
+  "/getAgreementContentInAdmin",
+  authMiddleware,
+  getAgreementContentInAdmin
+);
 
 /* ---------------------------------------------
  📚 Research Analysis Management
@@ -150,8 +168,17 @@ router.post(
   addOrUpdateResearchAnalysis
 );
 
-router.get("/getAllResearchAnalysis", authMiddleware, getAllResearchAnalysisInAdmin);
+router.get(
+  "/getAllResearchAnalysis",
+  authMiddleware,
+  getAllResearchAnalysisInAdmin
+);
 router.get("/getResearchAnalysisById", authMiddleware, getResearchAnalysisById);
 router.get("/deleteResearchAnalysis", authMiddleware, deleteResearchAnalysis);
+
+router.post("/deleteSubscriber", authMiddleware, deleteSubscriber);
+router.get("/getAllSubscribers", authMiddleware, getAllSubscribers);
+router.get("/getAllContacts", authMiddleware, getAllContacts);
+router.post("/deleteContact", authMiddleware, deleteContact);
 
 export default router;
