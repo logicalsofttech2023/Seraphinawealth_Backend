@@ -41,11 +41,35 @@ import {
   getResearchAnalysisById,
   deleteResearchAnalysis,
   addOrUpdateResearchAnalysis,
-  getUsersWithPaidAgreement,
   getAllSubscribers,
   deleteSubscriber,
   getAllContacts,
   deleteContact,
+  addPlan,
+  updatePlan,
+  getAllPlansInAdmin,
+  getPlanByIdInAdmin,
+  getServiceTypesInAdmin,
+  addFreeOffering,
+  getAllFreeOfferings,
+  getFreeOfferingById,
+  updateFreeOffering,
+  deleteFreeOffering,
+  addIndividualBusinessService,
+  getAllIndividualBusinessServices,
+  getIndividualBusinessServiceById,
+  updateIndividualBusinessService,
+  deleteIndividualBusinessService,
+  addBusinessService,
+  getAllBusinessServices,
+  getBusinessServiceById,
+  updateBusinessService,
+  deleteBusinessService,
+  addInstitutionalService,
+  getAllInstitutionalServices,
+  getInstitutionalServiceById,
+  updateInstitutionalService,
+  deleteInstitutionalService,
 } from "../controllers/adminController.js";
 
 import { authMiddleware } from "../middlewares/authMiddleware.js";
@@ -133,11 +157,6 @@ router.post("/updatePlanFlags", authMiddleware, updatePlanFlags);
 ----------------------------------------------*/
 router.get("/getAllUsers", authMiddleware, getAllUsers);
 router.get("/getUsersWithInvestment", authMiddleware, getUsersWithInvestment);
-router.get(
-  "/getUsersWithPaidAgreement",
-  authMiddleware,
-  getUsersWithPaidAgreement
-);
 
 /* ---------------------------------------------
  📦 Service Type Management
@@ -147,6 +166,33 @@ router.get("/getAllServiceTypes", authMiddleware, getAllServiceTypes);
 router.get("/getServiceTypeById", authMiddleware, getServiceTypeById);
 router.post("/updateServiceType", authMiddleware, updateServiceType);
 router.post("/deleteServiceType", authMiddleware, deleteServiceType);
+
+
+router.post("/addFreeOffering", authMiddleware, addFreeOffering);
+router.get("/getAllFreeOfferings", authMiddleware, getAllFreeOfferings);
+router.get("/getFreeOfferingById", authMiddleware, getFreeOfferingById);
+router.post("/updateFreeOffering", authMiddleware, updateFreeOffering);
+router.post("/deleteFreeOffering", authMiddleware, deleteFreeOffering);
+
+router.post("/addIndividualBusinessService", authMiddleware, addIndividualBusinessService);
+router.get("/getAllIndividualBusinessServices", authMiddleware, getAllIndividualBusinessServices);
+router.get("/getIndividualBusinessServiceById", authMiddleware, getIndividualBusinessServiceById);
+router.post("/updateIndividualBusinessService", authMiddleware, updateIndividualBusinessService);
+router.post("/deleteIndividualBusinessService", authMiddleware, deleteIndividualBusinessService);
+
+
+router.post("/addBusinessService", authMiddleware, addBusinessService);
+router.get("/getAllBusinessServices", authMiddleware, getAllBusinessServices);
+router.get("/getBusinessServiceById", authMiddleware, getBusinessServiceById);
+router.post("/updateBusinessService", authMiddleware, updateBusinessService);
+router.post("/deleteBusinessService", authMiddleware, deleteBusinessService);
+
+
+router.post("/addInstitutionalService", authMiddleware, addInstitutionalService);
+router.get("/getAllInstitutionalServices", authMiddleware, getAllInstitutionalServices);
+router.get("/getInstitutionalServiceById", authMiddleware, getInstitutionalServiceById);
+router.post("/updateInstitutionalService", authMiddleware, updateInstitutionalService);
+router.post("/deleteInstitutionalService", authMiddleware, deleteInstitutionalService);
 
 /* ---------------------------------------------
  📜 Agreement Content Management
@@ -180,5 +226,16 @@ router.post("/deleteSubscriber", authMiddleware, deleteSubscriber);
 router.get("/getAllSubscribers", authMiddleware, getAllSubscribers);
 router.get("/getAllContacts", authMiddleware, getAllContacts);
 router.post("/deleteContact", authMiddleware, deleteContact);
+
+
+router.get("/getServiceTypesInAdmin", authMiddleware, getServiceTypesInAdmin);
+
+
+router.post("/addPlan", authMiddleware, addPlan);
+router.post("/updatePlan", authMiddleware, updatePlan);
+router.get("/getAllPlansInAdmin", authMiddleware, getAllPlansInAdmin);
+router.get("/getPlanByIdInAdmin", authMiddleware, getPlanByIdInAdmin);
+
+
 
 export default router;

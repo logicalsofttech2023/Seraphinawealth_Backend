@@ -12,12 +12,12 @@ import Notification from "../models/NotificationModel.js";
 import InvestmentPurchase from "../models/InvestmentPurchase.js";
 import InvestmentPlan from "../models/InvestmentPlan.js";
 import InvestmentCategory from "../models/InvestmentCategory.js";
-import ServiceType from "../models/ServiceType.js";
-import AgreementForm from "../models/AgreementForm.js";
+import ServiceType, { BusinessService, FreeOffering, IndividualBusinessService, InstitutionalService } from "../models/ServiceType.js";
 import AgreementContent from "../models/AgreementContent.js";
 import NewsletterSubscriber from "../models/NewsletterSubscriber.js";
 import ResearchAnalysis from "../models/ResearchAnalysis.js";
 import Contact from "../models/Contact.js";
+import Plan from "../models/Plan.js";
 
 const generateJwtToken = (user) => {
   return jwt.sign(
@@ -1291,128 +1291,6 @@ export const getServiceTypes = async (req, res) => {
   }
 };
 
-export const submitAgreementForm = async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const {
-      serviceTypeId,
-      deliveryPreference,
-      amount,
-      paymentStatus,
-      serviceChoice,
-    } = req.body;
-
-    if (!serviceTypeId || !deliveryPreference || !amount) {
-      return res
-        .status(400)
-        .json({ status: false, message: "All fields are required" });
-    }
-
-    // 1️⃣ Validate Service Type
-    const service = await ServiceType.findById(serviceTypeId);
-    if (!service) {
-      return res
-        .status(404)
-        .json({ status: false, message: "Invalid service type" });
-    }
-
-    // 2️⃣ Save/Update Agreement Form
-    const agreement = await AgreementForm.findOneAndUpdate(
-      { userId },
-      {
-        serviceTypeId,
-        deliveryPreference,
-        paymentStatus,
-        serviceChoice,
-      },
-      { new: true, upsert: true }
-    );
-
-    // 3️⃣ Create Transaction
-    const transactionId = generateTransactionId();
-    const transaction = await Transaction.create({
-      userId,
-      amount,
-      type: "consultation",
-      status: "success",
-      transactionId,
-      description: `Consultation fee paid for ${service.name}`,
-    });
-
-    // 4️⃣ Send Notification
-    const title = "Consultation Started";
-    const body = `You have successfully subscribed to ${service.name} service.`;
-
-    await addNotification(userId, title, body);
-
-    // ✅ Final Response
-    res.status(200).json({
-      status: true,
-      message: "Agreement form submitted and payment recorded successfully",
-      data: {
-        agreement,
-        transaction,
-      },
-    });
-  } catch (error) {
-    console.error("Agreement Error:", error);
-    res.status(500).json({
-      status: false,
-      message: "Internal server error",
-      error: error.message,
-    });
-  }
-};
-
-export const checkAgreementForm = async (req, res) => {
-  try {
-    const userId = req.user.id;
-
-    const agreement = await AgreementForm.findOne({ userId });
-
-    if (!agreement) {
-      return res.status(200).json({
-        status: false,
-        message: "Agreement form not submitted",
-        data: null,
-      });
-    }
-
-    res.status(200).json({
-      status: true,
-      message: "Agreement form found",
-      data: agreement,
-    });
-  } catch (error) {
-    console.error("Check Agreement Error:", error);
-    res.status(500).json({
-      status: false,
-      message: "Internal server error",
-      error: error.message,
-    });
-  }
-};
-
-export const getAgreementForm = async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const agreement = await AgreementForm.findOne({ userId });
-
-    if (!agreement) {
-      return res
-        .status(404)
-        .json({ status: false, message: "Agreement form not found" });
-    }
-    res.status(200).json({
-      status: true,
-      message: "Agreement form fetched successfully",
-      data: agreement,
-    });
-  } catch (error) {
-    console.log(error);
-  }
-};
-
 export const getAgreementContent = async (req, res) => {
   try {
     const content = await AgreementContent.findOne();
@@ -1492,5 +1370,258 @@ export const createContact = async (req, res) => {
     res.status(200).json({ success: true, message: "Message submitted successfully" });
   } catch (err) {
     res.status(500).json({ success: false, message: "Server Error", error: err.message });
+  }
+};
+
+export const getAllFreeOfferingsInUser = async (req, res) => {
+  try {
+    const offerings = await FreeOffering.find().sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      message: "Fetched free offerings successfully",
+      data: offerings,
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: "Error fetching free offerings",
+      error: err.message,
+    });
+  }
+};
+
+export const getAllIndividualBusinessServicesInUser = async (req, res) => {
+  try {
+    const data = await IndividualBusinessService.find().sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      message: "Fetched Data successfully",
+      data: data,
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: "Error fetching Data",
+      error: err.message,
+    });
+  }
+};
+
+export const getAllBusinessServicesInUser = async (req, res) => {
+  try {
+    const data = await BusinessService.find().sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      message: "Fetched Data successfully",
+      data: data,
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: "Error fetching Data",
+      error: err.message,
+    });
+  }
+};
+
+export const getAllInstitutionalServicesInUser = async (req, res) => {
+  try {
+    const data = await InstitutionalService.find().sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      message: "Fetched Data successfully",
+      data: data,
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: "Error fetching Data",
+      error: err.message,
+    });
+  }
+};
+
+export const getAllFAQsInUser = async (req, res) => {
+  try {
+    const faqs = await FAQ.find().sort({ createdAt: -1 });
+    res.status(200).json({ faqs, message: "FAQ fetch successfully" });
+  } catch (error) {
+    console.error("Error fetching FAQs:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const createPlan = async (req, res) => {
+  const userId = req.user.id;
+  try {
+    const {
+      deliveryPreference,
+      serviceChoice,
+      startDate,
+      endDate,
+      freeOfferings = [],
+      individualBusinessServices = [],
+      businessServices = [],
+      institutionalServices = [],
+      totalPrice = 0,
+    } = req.body;
+
+    // Basic validation
+    if (!deliveryPreference || !serviceChoice || !startDate || !endDate) {
+      return res.status(400).json({
+        success: false,
+        message: "Required fields are missing.",
+      });
+    }
+
+    // Create plan
+    const newPlan = new Plan({
+      deliveryPreference,
+      serviceChoice,
+      startDate,
+      endDate,
+      freeOfferings,
+      individualBusinessServices,
+      businessServices,
+      institutionalServices,
+      totalPrice,
+      userId,
+    });
+
+    const savedPlan = await newPlan.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Plan created successfully.",
+      plan: savedPlan,
+    });
+  } catch (error) {
+    console.error("Error creating plan:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while creating plan.",
+    });
+  }
+};
+
+export const renewPlan = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+
+    // Validate userId
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized. User ID is missing.",
+      });
+    }
+
+    // Validate totalPrice if provided
+    const { totalPrice } = req.body;
+    if (totalPrice !== undefined && (typeof totalPrice !== "number" || totalPrice < 0)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid totalPrice. It must be a positive number.",
+      });
+    }
+
+    // Check if the user already has a plan
+    const existingPlan = await Plan.findOne({ userId });
+    if (!existingPlan) {
+      return res.status(404).json({
+        success: false,
+        message: "No existing plan found for this user to renew.",
+      });
+    }
+
+    // Extend the current end date by 6 months
+    const extendedEndDate = new Date(existingPlan.endDate);
+    extendedEndDate.setMonth(extendedEndDate.getMonth() + 6);
+
+    existingPlan.endDate = extendedEndDate;
+
+    // Update totalPrice if provided
+    if (totalPrice !== undefined) {
+      existingPlan.totalPrice = totalPrice;
+    }
+
+    const updatedPlan = await existingPlan.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Plan renewed successfully.",
+      plan: updatedPlan,
+    });
+  } catch (error) {
+    console.error("Error renewing plan:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error while renewing the plan.",
+    });
+  }
+};
+
+
+export const getPlanByUserId = async (req, res) => {
+  try {
+    const userId  = req.user.id;
+
+    const plan = await Plan.findOne({ userId })
+      .populate("freeOfferings")
+      .populate("individualBusinessServices")
+      .populate("businessServices")
+      .populate("institutionalServices");
+
+    if (!plan) {
+      return res.status(404).json({
+        success: false,
+        message: "No plan found for this user.",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Plan fetched successfully.",
+      plan,
+    });
+  } catch (error) {
+    console.error("Error fetching plan by userId:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while fetching plan.",
+    });
+  }
+};
+
+export const hasUserTakenPlan = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const existingPlan = await Plan.findOne({ userId });
+
+    if (existingPlan) {
+      return res.status(200).json({
+        success: true,
+        hasPlan: true,
+        plan: existingPlan,
+        message: "User has already taken a plan.",
+      });
+    } else {
+      return res.status(200).json({
+        success: true,
+        hasPlan: false,
+        message: "User has not taken any plan.",
+      });
+    }
+  } catch (error) {
+    console.error("Error checking user plan:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while checking plan status.",
+    });
   }
 };

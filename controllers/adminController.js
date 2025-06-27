@@ -9,14 +9,14 @@ import mongoose from "mongoose";
 import bcrypt from "bcrypt";
 import InvestmentPurchase from "../models/InvestmentPurchase.js";
 import User from "../models/UserModel.js";
-import ServiceType from "../models/ServiceType.js";
-import AgreementForm from "../models/AgreementForm.js";
+import ServiceType, { BusinessService, FreeOffering, IndividualBusinessService, InstitutionalService } from "../models/ServiceType.js";
 import AgreementContent from "../models/AgreementContent.js";
 import NewsletterSubscriber from "../models/NewsletterSubscriber.js";
 import ResearchAnalysis from "../models/ResearchAnalysis.js";
 import fs from "fs";
 import path from "path";
 import Contact from "../models/Contact.js";
+import Plan from "../models/Plan.js";
 
 const ALLOWED_EXTENSIONS = /\.(pdf|doc|docx|txt)$/i;
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
@@ -232,58 +232,6 @@ export const getAllUsers = async (req, res) => {
     res.status(500).json({
       message: "Internal Server Error",
       status: false,
-      error: error.message,
-    });
-  }
-};
-
-export const getUsersWithPaidAgreement = async (req, res) => {
-  try {
-    let { page = 1, limit = 10, search = "" } = req.query;
-    page = parseInt(page);
-    limit = parseInt(limit);
-    const skip = (page - 1) * limit;
-
-    // Step 1: Find agreements with paid service
-    const filter = { serviceChoice: "paid" };
-
-    // Step 2: Populate user and apply search filter
-    const agreements = await AgreementForm.find(filter)
-      .populate({
-        path: "userId",
-        match: {
-          $or: [
-            { firstName: { $regex: search, $options: "i" } },
-            { userEmail: { $regex: search, $options: "i" } },
-            { phone: { $regex: search, $options: "i" } },
-          ],
-        },
-      })
-      .skip(skip)
-      .limit(limit);
-
-    // Step 3: Filter out null users (due to unmatched search)
-    const users = agreements.map((a) => a.userId).filter((u) => u !== null);
-
-    // Step 4: Total count for pagination
-    const totalAgreements = await AgreementForm.countDocuments(filter);
-
-    res.status(200).json({
-      status: true,
-      message: "Users with paid service agreement",
-      data: users,
-      pagination: {
-        total: totalAgreements,
-        page,
-        limit,
-        totalPages: Math.ceil(totalAgreements / limit),
-      },
-    });
-  } catch (error) {
-    console.error("Fetch Paid Users Error:", error);
-    res.status(500).json({
-      status: false,
-      message: "Internal server error",
       error: error.message,
     });
   }
@@ -986,6 +934,19 @@ export const getAllServiceTypes = async (req, res) => {
   }
 };
 
+export const getServiceTypesInAdmin = async (req, res) => {
+  try {
+    const services = await ServiceType.find().sort({ createdAt: -1 });
+    res
+      .status(200)
+      .json({ message: "Fetched all service types", data: services });
+  } catch (err) {
+    res
+      .status(500)
+      .json({ message: "Error fetching services", error: err.message });
+  }
+}
+
 export const getServiceTypeById = async (req, res) => {
   try {
     const { id } = req.query;
@@ -1032,6 +993,418 @@ export const deleteServiceType = async (req, res) => {
     res
       .status(500)
       .json({ message: "Error deleting service", error: err.message });
+  }
+};
+
+// Free Offering Controllers
+export const addFreeOffering = async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name) return res.status(400).json({ message: "Name is required" });
+
+    const exists = await FreeOffering.findOne({ name });
+    if (exists)
+      return res.status(409).json({ message: "Free offering already exists" });
+
+    const newOffering = await FreeOffering.create({ name });
+    res.status(200).json({ message: "Free offering added", data: newOffering });
+  } catch (err) {
+    res
+      .status(500)
+      .json({ message: "Error adding free offering", error: err.message });
+  }
+};
+
+export const getAllFreeOfferings = async (req, res) => {
+  try {
+    const { search = "", page = 1, limit = 10 } = req.query;
+
+    const query = {
+      name: { $regex: search, $options: "i" },
+    };
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const [offerings, total] = await Promise.all([
+      FreeOffering.find(query)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(parseInt(limit)),
+      FreeOffering.countDocuments(query),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      message: "Fetched free offerings successfully",
+      data: offerings,
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(total / limit),
+      totalItems: total,
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: "Error fetching free offerings",
+      error: err.message,
+    });
+  }
+};
+
+export const getFreeOfferingById = async (req, res) => {
+  try {
+    const { id } = req.query;
+    const offering = await FreeOffering.findById(id);
+    if (!offering) return res.status(404).json({ message: "Free offering not found" });
+
+    res.status(200).json({ message: "Fetched free offering", data: offering });
+  } catch (err) {
+    res
+      .status(500)
+      .json({ message: "Error fetching free offering", error: err.message });
+  }
+};
+
+export const updateFreeOffering = async (req, res) => {
+  try {
+    const { id } = req.query;
+    const { name } = req.body;
+
+    const updated = await FreeOffering.findByIdAndUpdate(
+      id,
+      { name },
+      { new: true, runValidators: true }
+    );
+
+    if (!updated) return res.status(404).json({ message: "Free offering not found" });
+
+    res.status(200).json({ message: "Free offering updated", data: updated });
+  } catch (err) {
+    res
+      .status(500)
+      .json({ message: "Error updating free offering", error: err.message });
+  }
+};
+
+export const deleteFreeOffering = async (req, res) => {
+  try {
+    const { id } = req.query;
+    const deleted = await FreeOffering.findByIdAndDelete(id);
+    if (!deleted) return res.status(404).json({ message: "Free offering not found" });
+
+    res.status(200).json({ message: "Free offering deleted", data: deleted });
+  } catch (err) {
+    res
+      .status(500)
+      .json({ message: "Error deleting free offering", error: err.message });
+  }
+};
+
+// Individual Business Service Controllers
+export const addIndividualBusinessService = async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name) return res.status(400).json({ message: "Name is required" });
+
+    const exists = await IndividualBusinessService.findOne({ name });
+    if (exists)
+      return res.status(409).json({ message: "Individual business service already exists" });
+
+    const newService = await IndividualBusinessService.create({ name });
+    res.status(200).json({ message: "Individual business service added", data: newService });
+  } catch (err) {
+    res
+      .status(500)
+      .json({ message: "Error adding individual business service", error: err.message });
+  }
+};
+
+export const getAllIndividualBusinessServices = async (req, res) => {
+  try {
+    const { search = "", page = 1, limit = 10 } = req.query;
+
+    const query = {
+      name: { $regex: search, $options: "i" },
+    };
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const [services, total] = await Promise.all([
+      IndividualBusinessService.find(query)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(parseInt(limit)),
+      IndividualBusinessService.countDocuments(query),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      message: "Fetched individual business services successfully",
+      data: services,
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(total / limit),
+      totalItems: total,
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: "Error fetching individual business services",
+      error: err.message,
+    });
+  }
+};
+
+export const getIndividualBusinessServiceById = async (req, res) => {
+  try {
+    const { id } = req.query;
+    const service = await IndividualBusinessService.findById(id);
+    if (!service) return res.status(404).json({ message: "Individual business service not found" });
+
+    res.status(200).json({ message: "Fetched individual business service", data: service });
+  } catch (err) {
+    res
+      .status(500)
+      .json({ message: "Error fetching individual business service", error: err.message });
+  }
+};
+
+export const updateIndividualBusinessService = async (req, res) => {
+  try {
+    const { id } = req.query;
+    const { name } = req.body;
+
+    const updated = await IndividualBusinessService.findByIdAndUpdate(
+      id,
+      { name },
+      { new: true, runValidators: true }
+    );
+
+    if (!updated) return res.status(404).json({ message: "Individual business service not found" });
+
+    res.status(200).json({ message: "Individual business service updated", data: updated });
+  } catch (err) {
+    res
+      .status(500)
+      .json({ message: "Error updating individual business service", error: err.message });
+  }
+};
+
+export const deleteIndividualBusinessService = async (req, res) => {
+  try {
+    const { id } = req.query;
+    const deleted = await IndividualBusinessService.findByIdAndDelete(id);
+    if (!deleted) return res.status(404).json({ message: "Individual business service not found" });
+
+    res.status(200).json({ message: "Individual business service deleted", data: deleted });
+  } catch (err) {
+    res
+      .status(500)
+      .json({ message: "Error deleting individual business service", error: err.message });
+  }
+};
+
+// Business Service Controllers
+export const addBusinessService = async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name) return res.status(400).json({ message: "Name is required" });
+
+    const exists = await BusinessService.findOne({ name });
+    if (exists)
+      return res.status(409).json({ message: "Business service already exists" });
+
+    const newService = await BusinessService.create({ name });
+    res.status(200).json({ message: "Business service added", data: newService });
+  } catch (err) {
+    res
+      .status(500)
+      .json({ message: "Error adding business service", error: err.message });
+  }
+};
+
+export const getAllBusinessServices = async (req, res) => {
+  try {
+    const { search = "", page = 1, limit = 10 } = req.query;
+
+    const query = {
+      name: { $regex: search, $options: "i" },
+    };
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const [services, total] = await Promise.all([
+      BusinessService.find(query)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(parseInt(limit)),
+      BusinessService.countDocuments(query),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      message: "Fetched business services successfully",
+      data: services,
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(total / limit),
+      totalItems: total,
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: "Error fetching business services",
+      error: err.message,
+    });
+  }
+};
+
+export const getBusinessServiceById = async (req, res) => {
+  try {
+    const { id } = req.query;
+    const service = await BusinessService.findById(id);
+    if (!service) return res.status(404).json({ message: "Business service not found" });
+
+    res.status(200).json({ message: "Fetched business service", data: service });
+  } catch (err) {
+    res
+      .status(500)
+      .json({ message: "Error fetching business service", error: err.message });
+  }
+};
+
+export const updateBusinessService = async (req, res) => {
+  try {
+    const { id } = req.query;
+    const { name } = req.body;
+
+    const updated = await BusinessService.findByIdAndUpdate(
+      id,
+      { name },
+      { new: true, runValidators: true }
+    );
+
+    if (!updated) return res.status(404).json({ message: "Business service not found" });
+
+    res.status(200).json({ message: "Business service updated", data: updated });
+  } catch (err) {
+    res
+      .status(500)
+      .json({ message: "Error updating business service", error: err.message });
+  }
+};
+
+export const deleteBusinessService = async (req, res) => {
+  try {
+    const { id } = req.query;
+    const deleted = await BusinessService.findByIdAndDelete(id);
+    if (!deleted) return res.status(404).json({ message: "Business service not found" });
+
+    res.status(200).json({ message: "Business service deleted", data: deleted });
+  } catch (err) {
+    res
+      .status(500)
+      .json({ message: "Error deleting business service", error: err.message });
+  }
+};
+
+// Institutional Service Controllers
+export const addInstitutionalService = async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name) return res.status(400).json({ message: "Name is required" });
+
+    const exists = await InstitutionalService.findOne({ name });
+    if (exists)
+      return res.status(409).json({ message: "Institutional service already exists" });
+
+    const newService = await InstitutionalService.create({ name });
+    res.status(200).json({ message: "Institutional service added", data: newService });
+  } catch (err) {
+    res
+      .status(500)
+      .json({ message: "Error adding institutional service", error: err.message });
+  }
+};
+
+export const getAllInstitutionalServices = async (req, res) => {
+  try {
+    const { search = "", page = 1, limit = 10 } = req.query;
+
+    const query = {
+      name: { $regex: search, $options: "i" },
+    };
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const [services, total] = await Promise.all([
+      InstitutionalService.find(query)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(parseInt(limit)),
+      InstitutionalService.countDocuments(query),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      message: "Fetched institutional services successfully",
+      data: services,
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(total / limit),
+      totalItems: total,
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: "Error fetching institutional services",
+      error: err.message,
+    });
+  }
+};
+
+export const getInstitutionalServiceById = async (req, res) => {
+  try {
+    const { id } = req.query;
+    const service = await InstitutionalService.findById(id);
+    if (!service) return res.status(404).json({ message: "Institutional service not found" });
+
+    res.status(200).json({ message: "Fetched institutional service", data: service });
+  } catch (err) {
+    res
+      .status(500)
+      .json({ message: "Error fetching institutional service", error: err.message });
+  }
+};
+
+export const updateInstitutionalService = async (req, res) => {
+  try {
+    const { id } = req.query;
+    const { name } = req.body;
+
+    const updated = await InstitutionalService.findByIdAndUpdate(
+      id,
+      { name },
+      { new: true, runValidators: true }
+    );
+
+    if (!updated) return res.status(404).json({ message: "Institutional service not found" });
+
+    res.status(200).json({ message: "Institutional service updated", data: updated });
+  } catch (err) {
+    res
+      .status(500)
+      .json({ message: "Error updating institutional service", error: err.message });
+  }
+};
+
+export const deleteInstitutionalService = async (req, res) => {
+  try {
+    const { id } = req.query;
+    const deleted = await InstitutionalService.findByIdAndDelete(id);
+    if (!deleted) return res.status(404).json({ message: "Institutional service not found" });
+
+    res.status(200).json({ message: "Institutional service deleted", data: deleted });
+  } catch (err) {
+    res
+      .status(500)
+      .json({ message: "Error deleting institutional service", error: err.message });
   }
 };
 
@@ -1329,5 +1702,106 @@ export const deleteContact = async (req, res) => {
       message: "Error deleting contact",
       error: err.message,
     });
+  }
+};
+
+
+export const addPlan = async (req, res) => {
+  try {
+    const {
+      title,
+      description,
+      amount,
+      discount,
+      keyFeatures,
+      duration,
+      serviceTypeId,
+      deliveryPreference,
+      serviceChoice,
+    } = req.body;
+
+    if (
+      !title ||
+      !description ||
+      !amount ||
+      !duration ||
+      !serviceTypeId ||
+      !deliveryPreference ||
+      !serviceChoice
+    ) {
+      return res.status(400).json({ success: false, message: "All required fields must be filled." });
+    }
+
+    const newPlan = new Plan({
+      title,
+      description,
+      amount,
+      discount,
+      keyFeatures,
+      duration,
+      serviceTypeId,
+      deliveryPreference,
+      serviceChoice,
+    });
+
+    await newPlan.save();
+
+    res.status(201).json({ success: true, message: "Plan created successfully", plan: newPlan });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Failed to create plan", error });
+  }
+};
+
+export const updatePlan = async (req, res) => {
+  try {
+    const { id } = req.query;
+    const updatedPlan = await Plan.findByIdAndUpdate(id, req.body, { new: true });
+
+    if (!updatedPlan) {
+      return res.status(404).json({ success: false, message: "Plan not found" });
+    }
+
+    res.status(200).json({ success: true, message: "Plan updated successfully", plan: updatedPlan });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Failed to update plan", error });
+  }
+};
+
+export const deletePlan = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deleted = await Plan.findByIdAndDelete(id);
+
+    if (!deleted) {
+      return res.status(404).json({ success: false, message: "Plan not found" });
+    }
+
+    res.status(200).json({ success: true, message: "Plan deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Failed to delete plan", error });
+  }
+};
+
+export const getAllPlansInAdmin = async (req, res) => {
+  try {
+    const plans = await Plan.find().populate("serviceTypeId");
+    res.status(200).json({ success: true, plans });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Failed to fetch plans", error });
+  }
+};
+
+export const getPlanByIdInAdmin = async (req, res) => {
+  try {
+    const { id } = req.query;
+    const plan = await Plan.findById(id).populate("serviceTypeId");
+
+    if (!plan) {
+      return res.status(404).json({ success: false, message: "Plan not found" });
+    }
+
+    res.status(200).json({ success: true, plan });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Failed to fetch plan", error });
   }
 };

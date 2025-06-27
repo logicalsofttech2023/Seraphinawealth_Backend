@@ -6,6 +6,7 @@ import path from "path";
 import admin from "firebase-admin";
 import userRoutes from "./routes/userRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
+import "./cron/index.js";
 
 
 dotenv.config();

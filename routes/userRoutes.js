@@ -33,12 +33,19 @@ import {
   getFeaturedPlans,
   getAllCategory,
   getServiceTypes,
-  submitAgreementForm,
-  checkAgreementForm,
   getAgreementContent,
   subscribeNewsletter,
   getAllResearchAnalysis,
   createContact,
+  getAllFreeOfferingsInUser,
+  getAllIndividualBusinessServicesInUser,
+  getAllBusinessServicesInUser,
+  getAllInstitutionalServicesInUser,
+  getAllFAQsInUser,
+  createPlan,
+  getPlanByUserId,
+  hasUserTakenPlan,
+  renewPlan,
 } from "../controllers/userController.js";
 
 import {authMiddleware, optionalAuthMiddleware} from "../middlewares/authMiddleware.js";
@@ -133,13 +140,22 @@ router.get("/getFAQList", getFAQList);
 router.get("/getFAQByFaqId", getFAQByFaqId);
 router.get("/getServiceTypes", getServiceTypes);
 router.get("/getAgreementContent", getAgreementContent);
-router.post("/submitAgreementForm", authMiddleware, submitAgreementForm);
-router.get("/checkAgreementForm",authMiddleware, checkAgreementForm);
 router.post("/subscribeNewsletter", subscribeNewsletter);
 router.get("/getAllResearchAnalysis", getAllResearchAnalysis);
 router.post("/createContact", createContact);
 
 
+router.get("/getAllFreeOfferingsInUser", getAllFreeOfferingsInUser);
+router.get("/getAllIndividualBusinessServicesInUser", getAllIndividualBusinessServicesInUser);
+
+router.get("/getAllBusinessServicesInUser", getAllBusinessServicesInUser);
+router.get("/getAllInstitutionalServicesInUser", getAllInstitutionalServicesInUser);
+router.get("/getAllFAQsInUser", getAllFAQsInUser);
+router.post("/createPlan",authMiddleware, createPlan);
+router.get("/renewPlan",authMiddleware, renewPlan);
+
+router.get("/getPlanByUserId",authMiddleware, getPlanByUserId);
+router.get("/hasUserTakenPlan",authMiddleware, hasUserTakenPlan);
 
 
 
