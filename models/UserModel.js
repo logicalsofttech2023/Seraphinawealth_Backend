@@ -80,6 +80,11 @@ const userSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    adminVerified: {
+      type: String,
+      enum: ["pending", "approved", "rejected"],
+      default: "pending",
+    },
   },
   { timestamps: true }
 );

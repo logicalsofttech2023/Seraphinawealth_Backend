@@ -9,7 +9,12 @@ import mongoose from "mongoose";
 import bcrypt from "bcrypt";
 import InvestmentPurchase from "../models/InvestmentPurchase.js";
 import User from "../models/UserModel.js";
-import ServiceType, { BusinessService, FreeOffering, IndividualBusinessService, InstitutionalService } from "../models/ServiceType.js";
+import ServiceType, {
+  BusinessService,
+  FreeOffering,
+  IndividualBusinessService,
+  InstitutionalService,
+} from "../models/ServiceType.js";
 import AgreementContent from "../models/AgreementContent.js";
 import NewsletterSubscriber from "../models/NewsletterSubscriber.js";
 import ResearchAnalysis from "../models/ResearchAnalysis.js";
@@ -945,7 +950,7 @@ export const getServiceTypesInAdmin = async (req, res) => {
       .status(500)
       .json({ message: "Error fetching services", error: err.message });
   }
-}
+};
 
 export const getServiceTypeById = async (req, res) => {
   try {
@@ -1054,7 +1059,8 @@ export const getFreeOfferingById = async (req, res) => {
   try {
     const { id } = req.query;
     const offering = await FreeOffering.findById(id);
-    if (!offering) return res.status(404).json({ message: "Free offering not found" });
+    if (!offering)
+      return res.status(404).json({ message: "Free offering not found" });
 
     res.status(200).json({ message: "Fetched free offering", data: offering });
   } catch (err) {
@@ -1075,7 +1081,8 @@ export const updateFreeOffering = async (req, res) => {
       { new: true, runValidators: true }
     );
 
-    if (!updated) return res.status(404).json({ message: "Free offering not found" });
+    if (!updated)
+      return res.status(404).json({ message: "Free offering not found" });
 
     res.status(200).json({ message: "Free offering updated", data: updated });
   } catch (err) {
@@ -1089,13 +1096,32 @@ export const deleteFreeOffering = async (req, res) => {
   try {
     const { id } = req.query;
     const deleted = await FreeOffering.findByIdAndDelete(id);
-    if (!deleted) return res.status(404).json({ message: "Free offering not found" });
+    if (!deleted)
+      return res.status(404).json({ message: "Free offering not found" });
 
     res.status(200).json({ message: "Free offering deleted", data: deleted });
   } catch (err) {
     res
       .status(500)
       .json({ message: "Error deleting free offering", error: err.message });
+  }
+};
+
+export const getAllFreeOfferingsInAdmin = async (req, res) => {
+  try {
+    const offerings = await FreeOffering.find().sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      message: "Fetched free offerings successfully",
+      data: offerings,
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: "Error fetching free offerings",
+      error: err.message,
+    });
   }
 };
 
@@ -1107,14 +1133,21 @@ export const addIndividualBusinessService = async (req, res) => {
 
     const exists = await IndividualBusinessService.findOne({ name });
     if (exists)
-      return res.status(409).json({ message: "Individual business service already exists" });
+      return res
+        .status(409)
+        .json({ message: "Individual business service already exists" });
 
     const newService = await IndividualBusinessService.create({ name });
-    res.status(200).json({ message: "Individual business service added", data: newService });
+    res
+      .status(200)
+      .json({ message: "Individual business service added", data: newService });
   } catch (err) {
     res
       .status(500)
-      .json({ message: "Error adding individual business service", error: err.message });
+      .json({
+        message: "Error adding individual business service",
+        error: err.message,
+      });
   }
 };
 
@@ -1157,13 +1190,21 @@ export const getIndividualBusinessServiceById = async (req, res) => {
   try {
     const { id } = req.query;
     const service = await IndividualBusinessService.findById(id);
-    if (!service) return res.status(404).json({ message: "Individual business service not found" });
+    if (!service)
+      return res
+        .status(404)
+        .json({ message: "Individual business service not found" });
 
-    res.status(200).json({ message: "Fetched individual business service", data: service });
+    res
+      .status(200)
+      .json({ message: "Fetched individual business service", data: service });
   } catch (err) {
     res
       .status(500)
-      .json({ message: "Error fetching individual business service", error: err.message });
+      .json({
+        message: "Error fetching individual business service",
+        error: err.message,
+      });
   }
 };
 
@@ -1178,13 +1219,21 @@ export const updateIndividualBusinessService = async (req, res) => {
       { new: true, runValidators: true }
     );
 
-    if (!updated) return res.status(404).json({ message: "Individual business service not found" });
+    if (!updated)
+      return res
+        .status(404)
+        .json({ message: "Individual business service not found" });
 
-    res.status(200).json({ message: "Individual business service updated", data: updated });
+    res
+      .status(200)
+      .json({ message: "Individual business service updated", data: updated });
   } catch (err) {
     res
       .status(500)
-      .json({ message: "Error updating individual business service", error: err.message });
+      .json({
+        message: "Error updating individual business service",
+        error: err.message,
+      });
   }
 };
 
@@ -1192,13 +1241,21 @@ export const deleteIndividualBusinessService = async (req, res) => {
   try {
     const { id } = req.query;
     const deleted = await IndividualBusinessService.findByIdAndDelete(id);
-    if (!deleted) return res.status(404).json({ message: "Individual business service not found" });
+    if (!deleted)
+      return res
+        .status(404)
+        .json({ message: "Individual business service not found" });
 
-    res.status(200).json({ message: "Individual business service deleted", data: deleted });
+    res
+      .status(200)
+      .json({ message: "Individual business service deleted", data: deleted });
   } catch (err) {
     res
       .status(500)
-      .json({ message: "Error deleting individual business service", error: err.message });
+      .json({
+        message: "Error deleting individual business service",
+        error: err.message,
+      });
   }
 };
 
@@ -1210,10 +1267,14 @@ export const addBusinessService = async (req, res) => {
 
     const exists = await BusinessService.findOne({ name });
     if (exists)
-      return res.status(409).json({ message: "Business service already exists" });
+      return res
+        .status(409)
+        .json({ message: "Business service already exists" });
 
     const newService = await BusinessService.create({ name });
-    res.status(200).json({ message: "Business service added", data: newService });
+    res
+      .status(200)
+      .json({ message: "Business service added", data: newService });
   } catch (err) {
     res
       .status(500)
@@ -1260,9 +1321,12 @@ export const getBusinessServiceById = async (req, res) => {
   try {
     const { id } = req.query;
     const service = await BusinessService.findById(id);
-    if (!service) return res.status(404).json({ message: "Business service not found" });
+    if (!service)
+      return res.status(404).json({ message: "Business service not found" });
 
-    res.status(200).json({ message: "Fetched business service", data: service });
+    res
+      .status(200)
+      .json({ message: "Fetched business service", data: service });
   } catch (err) {
     res
       .status(500)
@@ -1281,9 +1345,12 @@ export const updateBusinessService = async (req, res) => {
       { new: true, runValidators: true }
     );
 
-    if (!updated) return res.status(404).json({ message: "Business service not found" });
+    if (!updated)
+      return res.status(404).json({ message: "Business service not found" });
 
-    res.status(200).json({ message: "Business service updated", data: updated });
+    res
+      .status(200)
+      .json({ message: "Business service updated", data: updated });
   } catch (err) {
     res
       .status(500)
@@ -1295,9 +1362,12 @@ export const deleteBusinessService = async (req, res) => {
   try {
     const { id } = req.query;
     const deleted = await BusinessService.findByIdAndDelete(id);
-    if (!deleted) return res.status(404).json({ message: "Business service not found" });
+    if (!deleted)
+      return res.status(404).json({ message: "Business service not found" });
 
-    res.status(200).json({ message: "Business service deleted", data: deleted });
+    res
+      .status(200)
+      .json({ message: "Business service deleted", data: deleted });
   } catch (err) {
     res
       .status(500)
@@ -1313,14 +1383,21 @@ export const addInstitutionalService = async (req, res) => {
 
     const exists = await InstitutionalService.findOne({ name });
     if (exists)
-      return res.status(409).json({ message: "Institutional service already exists" });
+      return res
+        .status(409)
+        .json({ message: "Institutional service already exists" });
 
     const newService = await InstitutionalService.create({ name });
-    res.status(200).json({ message: "Institutional service added", data: newService });
+    res
+      .status(200)
+      .json({ message: "Institutional service added", data: newService });
   } catch (err) {
     res
       .status(500)
-      .json({ message: "Error adding institutional service", error: err.message });
+      .json({
+        message: "Error adding institutional service",
+        error: err.message,
+      });
   }
 };
 
@@ -1363,13 +1440,21 @@ export const getInstitutionalServiceById = async (req, res) => {
   try {
     const { id } = req.query;
     const service = await InstitutionalService.findById(id);
-    if (!service) return res.status(404).json({ message: "Institutional service not found" });
+    if (!service)
+      return res
+        .status(404)
+        .json({ message: "Institutional service not found" });
 
-    res.status(200).json({ message: "Fetched institutional service", data: service });
+    res
+      .status(200)
+      .json({ message: "Fetched institutional service", data: service });
   } catch (err) {
     res
       .status(500)
-      .json({ message: "Error fetching institutional service", error: err.message });
+      .json({
+        message: "Error fetching institutional service",
+        error: err.message,
+      });
   }
 };
 
@@ -1384,13 +1469,21 @@ export const updateInstitutionalService = async (req, res) => {
       { new: true, runValidators: true }
     );
 
-    if (!updated) return res.status(404).json({ message: "Institutional service not found" });
+    if (!updated)
+      return res
+        .status(404)
+        .json({ message: "Institutional service not found" });
 
-    res.status(200).json({ message: "Institutional service updated", data: updated });
+    res
+      .status(200)
+      .json({ message: "Institutional service updated", data: updated });
   } catch (err) {
     res
       .status(500)
-      .json({ message: "Error updating institutional service", error: err.message });
+      .json({
+        message: "Error updating institutional service",
+        error: err.message,
+      });
   }
 };
 
@@ -1398,13 +1491,21 @@ export const deleteInstitutionalService = async (req, res) => {
   try {
     const { id } = req.query;
     const deleted = await InstitutionalService.findByIdAndDelete(id);
-    if (!deleted) return res.status(404).json({ message: "Institutional service not found" });
+    if (!deleted)
+      return res
+        .status(404)
+        .json({ message: "Institutional service not found" });
 
-    res.status(200).json({ message: "Institutional service deleted", data: deleted });
+    res
+      .status(200)
+      .json({ message: "Institutional service deleted", data: deleted });
   } catch (err) {
     res
       .status(500)
-      .json({ message: "Error deleting institutional service", error: err.message });
+      .json({
+        message: "Error deleting institutional service",
+        error: err.message,
+      });
   }
 };
 
@@ -1495,101 +1596,195 @@ export const deleteSubscriber = async (req, res) => {
   }
 };
 
-export const addOrUpdateResearchAnalysis = async (req, res) => {
+export const addResearchAnalysis = async (req, res) => {
   try {
-    const { id = "", title = "", description = "" } = req.body;
-    const file = req.files?.file?.[0];
+    const files = req.files?.documents || [];
+    const { title = "", description = "", serviceChoice } = req.body;
 
-    // Validate required fields
-    if (!title || !description) {
+    // Validation
+    if (!files.length || !title || !description || !serviceChoice) {
       return res.status(400).json({
         success: false,
-        message: "Title and description are required.",
+        message: "Files, title, description, and serviceChoice are required.",
       });
     }
 
-    let documentFilename;
+    const fileNames = [];
 
-    if (file) {
+    for (const file of files) {
       if (!ALLOWED_EXTENSIONS.test(file.originalname)) {
         return res.status(400).json({
           success: false,
-          message:
-            "Invalid file type. Only PDF, DOC, DOCX, and TXT are allowed.",
+          message: `Invalid file type for file ${file.originalname}`,
         });
       }
 
       if (file.size > MAX_FILE_SIZE) {
         return res.status(400).json({
           success: false,
-          message: "File size exceeds the 20MB limit.",
+          message: `File ${file.originalname} exceeds the 20MB limit.`,
         });
       }
 
-      documentFilename = file.filename;
+      fileNames.push(file.filename);
     }
 
-    if (id) {
-      // UPDATE
-      const existingDoc = await ResearchAnalysis.findById(id);
+    // Create one ResearchAnalysis document with multiple files
+    const doc = new ResearchAnalysis({
+      title: title.trim(),
+      description: description.trim(),
+      documents: fileNames,
+      serviceChoice,
+    });
 
-      if (!existingDoc) {
-        return res.status(404).json({
+    await doc.save();
+
+    return res.status(201).json({
+      success: true,
+      message: "Research document uploaded successfully.",
+      data: doc,
+    });
+  } catch (error) {
+    console.error("Error in addResearchAnalysis:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
+  }
+};
+
+export const updateResearchAnalysis = async (req, res) => {
+  try {
+    const { title = "", description = "", serviceChoice, id } = req.body;
+    const files = req.files?.documents || []; // Updated: multiple file input named 'documents'
+
+    // Basic validation
+    if (!id || !title.trim() || !description.trim() || !serviceChoice) {
+      return res.status(400).json({
+        success: false,
+        message: "ID, title, description, and serviceChoice are required.",
+      });
+    }
+
+    const existingDoc = await ResearchAnalysis.findById(id);
+
+    if (!existingDoc) {
+      return res.status(404).json({
+        success: false,
+        message: "Research document not found.",
+      });
+    }
+
+    // Validate and collect new file names
+    const newFileNames = [];
+
+    for (const file of files) {
+      if (!ALLOWED_EXTENSIONS.test(file.originalname)) {
+        return res.status(400).json({
           success: false,
-          message: "Document not found.",
+          message: `Invalid file type for file ${file.originalname}`,
         });
       }
 
-      existingDoc.title = title.trim();
-      existingDoc.description = description.trim();
-
-      // Only update file if new one is provided
-      if (documentFilename) {
-        existingDoc.document = documentFilename;
+      if (file.size > MAX_FILE_SIZE) {
+        return res.status(400).json({
+          success: false,
+          message: `File ${file.originalname} exceeds the 20MB limit.`,
+        });
       }
 
-      await existingDoc.save();
+      newFileNames.push(file.filename);
+    }
+
+    // Update document fields
+    existingDoc.title = title.trim();
+    existingDoc.description = description.trim();
+    existingDoc.serviceChoice = serviceChoice;
+
+    // Append new files to the existing documents array
+    if (newFileNames.length) {
+      existingDoc.documents.push(...newFileNames);
+    }
+
+    await existingDoc.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Research document updated successfully.",
+      data: existingDoc,
+    });
+  } catch (error) {
+    console.error("Error in updateResearchAnalysis:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
+  }
+};
+
+export const deleteResearchDocument = async (req, res) => {
+  try {
+    const { filename, documentId } = req.body;
+
+    if (!filename || !documentId) {
+      return res.status(400).json({
+        success: false,
+        message: "Filename and document ID are required.",
+      });
+    }
+
+    const filePath = path.join("uploads", filename);
+
+    // Check if file exists
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({
+        success: false,
+        message: "File not found on server.",
+      });
+    }
+
+    // Delete the file from filesystem
+    fs.unlink(filePath, async (err) => {
+      if (err) {
+        console.error("Error deleting file:", err);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to delete the file.",
+        });
+      }
+
+      // Remove the filename from the document in DB
+      const updatedDoc = await ResearchAnalysis.findByIdAndUpdate(
+        documentId,
+        { $pull: { documents: filename } },
+        { new: true }
+      );
+
+      if (!updatedDoc) {
+        return res.status(404).json({
+          success: false,
+          message: "Document not found in database.",
+        });
+      }
 
       return res.status(200).json({
         success: true,
-        message: "Research analysis updated successfully.",
-        data: existingDoc,
+        message: "File deleted from server and database successfully.",
+        data: updatedDoc,
       });
-    } else {
-      // ADD - require document
-      if (!documentFilename) {
-        return res.status(400).json({
-          success: false,
-          message: "Document file is required for upload.",
-        });
-      }
-
-      const newDoc = new ResearchAnalysis({
-        title: title.trim(),
-        description: description.trim(),
-        document: documentFilename,
-      });
-
-      await newDoc.save();
-
-      return res.status(201).json({
-        success: true,
-        message: "Research analysis uploaded successfully.",
-        data: newDoc,
-      });
-    }
+    });
   } catch (error) {
-    console.error("Error in addOrUpdateResearchAnalysis:", error);
+    console.error("Error in deleteResearchDocument:", error);
     return res.status(500).json({
       success: false,
-      message: "Something went wrong.",
+      message: "Internal Server Error",
     });
   }
 };
 
 export const getAllResearchAnalysisInAdmin = async (req, res) => {
   try {
-    const data = await ResearchAnalysis.findOne().sort({ createdAt: -1 });
+    const data = await ResearchAnalysis.find().sort({ createdAt: -1 });
     res
       .status(200)
       .json({ success: true, message: "Fetched successfully", data });
@@ -1632,16 +1827,28 @@ export const deleteResearchAnalysis = async (req, res) => {
 
     const doc = await ResearchAnalysis.findByIdAndDelete(id);
     if (!doc) {
-      return res.status(404).json({ success: false, message: "Not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Document not found" });
     }
 
-    // Remove file
-    const filePath = path.join("uploads", doc.document);
-    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    // Delete all associated files in documents array
+    if (Array.isArray(doc.documents)) {
+      doc.documents.forEach((filename) => {
+        const filePath = path.join("uploads", filename);
+        if (fs.existsSync(filePath)) {
+          try {
+            fs.unlinkSync(filePath);
+          } catch (err) {
+            console.error(`Failed to delete file ${filename}:`, err);
+          }
+        }
+      });
+    }
 
     res.status(200).json({
       success: true,
-      message: "Deleted successfully",
+      message: "Research document and associated files deleted successfully.",
     });
   } catch (error) {
     console.error("Delete error:", error);
@@ -1705,7 +1912,6 @@ export const deleteContact = async (req, res) => {
   }
 };
 
-
 export const addPlan = async (req, res) => {
   try {
     const {
@@ -1729,7 +1935,12 @@ export const addPlan = async (req, res) => {
       !deliveryPreference ||
       !serviceChoice
     ) {
-      return res.status(400).json({ success: false, message: "All required fields must be filled." });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "All required fields must be filled.",
+        });
     }
 
     const newPlan = new Plan({
@@ -1746,24 +1957,44 @@ export const addPlan = async (req, res) => {
 
     await newPlan.save();
 
-    res.status(201).json({ success: true, message: "Plan created successfully", plan: newPlan });
+    res
+      .status(201)
+      .json({
+        success: true,
+        message: "Plan created successfully",
+        plan: newPlan,
+      });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Failed to create plan", error });
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to create plan", error });
   }
 };
 
 export const updatePlan = async (req, res) => {
   try {
     const { id } = req.query;
-    const updatedPlan = await Plan.findByIdAndUpdate(id, req.body, { new: true });
+    const updatedPlan = await Plan.findByIdAndUpdate(id, req.body, {
+      new: true,
+    });
 
     if (!updatedPlan) {
-      return res.status(404).json({ success: false, message: "Plan not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Plan not found" });
     }
 
-    res.status(200).json({ success: true, message: "Plan updated successfully", plan: updatedPlan });
+    res
+      .status(200)
+      .json({
+        success: true,
+        message: "Plan updated successfully",
+        plan: updatedPlan,
+      });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Failed to update plan", error });
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to update plan", error });
   }
 };
 
@@ -1773,12 +2004,18 @@ export const deletePlan = async (req, res) => {
     const deleted = await Plan.findByIdAndDelete(id);
 
     if (!deleted) {
-      return res.status(404).json({ success: false, message: "Plan not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Plan not found" });
     }
 
-    res.status(200).json({ success: true, message: "Plan deleted successfully" });
+    res
+      .status(200)
+      .json({ success: true, message: "Plan deleted successfully" });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Failed to delete plan", error });
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to delete plan", error });
   }
 };
 
@@ -1787,7 +2024,9 @@ export const getAllPlansInAdmin = async (req, res) => {
     const plans = await Plan.find().populate("serviceTypeId");
     res.status(200).json({ success: true, plans });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Failed to fetch plans", error });
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to fetch plans", error });
   }
 };
 
@@ -1797,11 +2036,171 @@ export const getPlanByIdInAdmin = async (req, res) => {
     const plan = await Plan.findById(id).populate("serviceTypeId");
 
     if (!plan) {
-      return res.status(404).json({ success: false, message: "Plan not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Plan not found" });
     }
 
     res.status(200).json({ success: true, plan });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Failed to fetch plan", error });
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to fetch plan", error });
+  }
+};
+
+export const getFreePlanUsers = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, search = "" } = req.query;
+
+    // Find all free plans
+    const plans = await Plan.find({ serviceChoice: "free" }).select("userId");
+
+    const userIds = plans.map((plan) => plan.userId);
+
+    const query = {
+      _id: { $in: userIds },
+      $or: [
+        { firstName: { $regex: search, $options: "i" } },
+        { userEmail: { $regex: search, $options: "i" } },
+      ],
+    };
+
+    const totalUsers = await User.countDocuments(query);
+    const users = await User.find(query)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(Number(limit));
+
+    res.status(200).json({
+      success: true,
+      data: users,
+      totalUsers,
+      currentPage: Number(page),
+      totalPages: Math.ceil(totalUsers / limit),
+    });
+  } catch (error) {
+    console.error("Error fetching free plan users:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while fetching free plan users.",
+    });
+  }
+};
+
+export const getIndividualPlanUsers = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, search = "" } = req.query;
+
+    const plans = await Plan.find({ serviceChoice: "individual" }).select(
+      "userId"
+    );
+    const userIds = plans.map((plan) => plan.userId);
+
+    const query = {
+      _id: { $in: userIds },
+      $or: [
+        { firstName: { $regex: search, $options: "i" } },
+        { userEmail: { $regex: search, $options: "i" } },
+      ],
+    };
+
+    const totalUsers = await User.countDocuments(query);
+    const users = await User.find(query)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(Number(limit));
+
+    res.status(200).json({
+      success: true,
+      data: users,
+      totalUsers,
+      currentPage: Number(page),
+      totalPages: Math.ceil(totalUsers / limit),
+    });
+  } catch (error) {
+    console.error("Error fetching individual plan users:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while fetching individual plan users.",
+    });
+  }
+};
+
+export const getBusinessPlanUsers = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, search = "" } = req.query;
+
+    const plans = await Plan.find({ serviceChoice: "business" }).select(
+      "userId"
+    );
+    const userIds = plans.map((plan) => plan.userId);
+
+    const query = {
+      _id: { $in: userIds },
+      $or: [
+        { firstName: { $regex: search, $options: "i" } },
+        { userEmail: { $regex: search, $options: "i" } },
+      ],
+    };
+
+    const totalUsers = await User.countDocuments(query);
+    const users = await User.find(query)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(Number(limit));
+
+    res.status(200).json({
+      success: true,
+      data: users,
+      totalUsers,
+      currentPage: Number(page),
+      totalPages: Math.ceil(totalUsers / limit),
+    });
+  } catch (error) {
+    console.error("Error fetching business plan users:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while fetching business plan users.",
+    });
+  }
+};
+
+export const getInstitutionalPlanUsers = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, search = "" } = req.query;
+
+    const plans = await Plan.find({ serviceChoice: "institutional" }).select(
+      "userId"
+    );
+    const userIds = plans.map((plan) => plan.userId);
+
+    const query = {
+      _id: { $in: userIds },
+      $or: [
+        { firstName: { $regex: search, $options: "i" } },
+        { userEmail: { $regex: search, $options: "i" } },
+      ],
+    };
+
+    const totalUsers = await User.countDocuments(query);
+    const users = await User.find(query)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(Number(limit));
+
+    res.status(200).json({
+      success: true,
+      data: users,
+      totalUsers,
+      currentPage: Number(page),
+      totalPages: Math.ceil(totalUsers / limit),
+    });
+  } catch (error) {
+    console.error("Error fetching institutional plan users:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while fetching institutional plan users.",
+    });
   }
 };

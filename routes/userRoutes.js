@@ -155,7 +155,7 @@ router.post("/createPlan",authMiddleware, createPlan);
 router.get("/renewPlan",authMiddleware, renewPlan);
 
 router.get("/getPlanByUserId",authMiddleware, getPlanByUserId);
-router.get("/hasUserTakenPlan",authMiddleware, hasUserTakenPlan);
+router.get("/hasUserTakenPlan",optionalAuthMiddleware, hasUserTakenPlan);
 
 
 

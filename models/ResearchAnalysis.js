@@ -12,8 +12,13 @@ const researchAnalysisSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    document: {
+    documents: {
+      type: [String],
+      default: [],
+    },
+    serviceChoice: {
       type: String,
+      enum: ["free", "individual", "business", "institutional"],
       required: true,
     },
   },

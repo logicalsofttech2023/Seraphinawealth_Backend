@@ -40,7 +40,6 @@ import {
   getAllResearchAnalysisInAdmin,
   getResearchAnalysisById,
   deleteResearchAnalysis,
-  addOrUpdateResearchAnalysis,
   getAllSubscribers,
   deleteSubscriber,
   getAllContacts,
@@ -70,6 +69,14 @@ import {
   getInstitutionalServiceById,
   updateInstitutionalService,
   deleteInstitutionalService,
+  getFreePlanUsers,
+  getIndividualPlanUsers,
+  getBusinessPlanUsers,
+  getInstitutionalPlanUsers,
+  addResearchAnalysis,
+  updateResearchAnalysis,
+  deleteResearchDocument,
+  getAllFreeOfferingsInAdmin,
 } from "../controllers/adminController.js";
 
 import { authMiddleware } from "../middlewares/authMiddleware.js";
@@ -167,19 +174,37 @@ router.get("/getServiceTypeById", authMiddleware, getServiceTypeById);
 router.post("/updateServiceType", authMiddleware, updateServiceType);
 router.post("/deleteServiceType", authMiddleware, deleteServiceType);
 
-
 router.post("/addFreeOffering", authMiddleware, addFreeOffering);
 router.get("/getAllFreeOfferings", authMiddleware, getAllFreeOfferings);
 router.get("/getFreeOfferingById", authMiddleware, getFreeOfferingById);
 router.post("/updateFreeOffering", authMiddleware, updateFreeOffering);
 router.post("/deleteFreeOffering", authMiddleware, deleteFreeOffering);
 
-router.post("/addIndividualBusinessService", authMiddleware, addIndividualBusinessService);
-router.get("/getAllIndividualBusinessServices", authMiddleware, getAllIndividualBusinessServices);
-router.get("/getIndividualBusinessServiceById", authMiddleware, getIndividualBusinessServiceById);
-router.post("/updateIndividualBusinessService", authMiddleware, updateIndividualBusinessService);
-router.post("/deleteIndividualBusinessService", authMiddleware, deleteIndividualBusinessService);
-
+router.post(
+  "/addIndividualBusinessService",
+  authMiddleware,
+  addIndividualBusinessService
+);
+router.get(
+  "/getAllIndividualBusinessServices",
+  authMiddleware,
+  getAllIndividualBusinessServices
+);
+router.get(
+  "/getIndividualBusinessServiceById",
+  authMiddleware,
+  getIndividualBusinessServiceById
+);
+router.post(
+  "/updateIndividualBusinessService",
+  authMiddleware,
+  updateIndividualBusinessService
+);
+router.post(
+  "/deleteIndividualBusinessService",
+  authMiddleware,
+  deleteIndividualBusinessService
+);
 
 router.post("/addBusinessService", authMiddleware, addBusinessService);
 router.get("/getAllBusinessServices", authMiddleware, getAllBusinessServices);
@@ -187,12 +212,31 @@ router.get("/getBusinessServiceById", authMiddleware, getBusinessServiceById);
 router.post("/updateBusinessService", authMiddleware, updateBusinessService);
 router.post("/deleteBusinessService", authMiddleware, deleteBusinessService);
 
-
-router.post("/addInstitutionalService", authMiddleware, addInstitutionalService);
-router.get("/getAllInstitutionalServices", authMiddleware, getAllInstitutionalServices);
-router.get("/getInstitutionalServiceById", authMiddleware, getInstitutionalServiceById);
-router.post("/updateInstitutionalService", authMiddleware, updateInstitutionalService);
-router.post("/deleteInstitutionalService", authMiddleware, deleteInstitutionalService);
+router.post(
+  "/addInstitutionalService",
+  authMiddleware,
+  addInstitutionalService
+);
+router.get(
+  "/getAllInstitutionalServices",
+  authMiddleware,
+  getAllInstitutionalServices
+);
+router.get(
+  "/getInstitutionalServiceById",
+  authMiddleware,
+  getInstitutionalServiceById
+);
+router.post(
+  "/updateInstitutionalService",
+  authMiddleware,
+  updateInstitutionalService
+);
+router.post(
+  "/deleteInstitutionalService",
+  authMiddleware,
+  deleteInstitutionalService
+);
 
 /* ---------------------------------------------
  📜 Agreement Content Management
@@ -208,11 +252,20 @@ router.get(
  📚 Research Analysis Management
 ----------------------------------------------*/
 router.post(
-  "/addOrUpdateResearchAnalysis",
-  uploadProfile.fields([{ name: "file", maxCount: 100 }]),
+  "/addResearchAnalysis",
+  uploadProfile.fields([{ name: "documents", maxCount: 100 }]),
   authMiddleware,
-  addOrUpdateResearchAnalysis
+  addResearchAnalysis
 );
+
+router.post(
+  "/updateResearchAnalysis",
+  uploadProfile.fields([{ name: "documents", maxCount: 100 }]),
+  authMiddleware,
+  updateResearchAnalysis
+);
+
+
 
 router.get(
   "/getAllResearchAnalysis",
@@ -221,21 +274,30 @@ router.get(
 );
 router.get("/getResearchAnalysisById", authMiddleware, getResearchAnalysisById);
 router.get("/deleteResearchAnalysis", authMiddleware, deleteResearchAnalysis);
+router.post("/deleteResearchDocument", authMiddleware, deleteResearchDocument);
+
+router.get("/getAllFreeOfferingsInAdmin", getAllFreeOfferingsInAdmin);
+
+
 
 router.post("/deleteSubscriber", authMiddleware, deleteSubscriber);
 router.get("/getAllSubscribers", authMiddleware, getAllSubscribers);
 router.get("/getAllContacts", authMiddleware, getAllContacts);
 router.post("/deleteContact", authMiddleware, deleteContact);
 
-
 router.get("/getServiceTypesInAdmin", authMiddleware, getServiceTypesInAdmin);
-
 
 router.post("/addPlan", authMiddleware, addPlan);
 router.post("/updatePlan", authMiddleware, updatePlan);
 router.get("/getAllPlansInAdmin", authMiddleware, getAllPlansInAdmin);
 router.get("/getPlanByIdInAdmin", authMiddleware, getPlanByIdInAdmin);
-
-
+router.get("/getFreePlanUsers", authMiddleware, getFreePlanUsers);
+router.get("/getIndividualPlanUsers", authMiddleware, getIndividualPlanUsers);
+router.get("/getBusinessPlanUsers", authMiddleware, getBusinessPlanUsers);
+router.get(
+  "/getInstitutionalPlanUsers",
+  authMiddleware,
+  getInstitutionalPlanUsers
+);
 
 export default router;

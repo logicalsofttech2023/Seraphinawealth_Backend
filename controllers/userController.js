@@ -12,7 +12,12 @@ import Notification from "../models/NotificationModel.js";
 import InvestmentPurchase from "../models/InvestmentPurchase.js";
 import InvestmentPlan from "../models/InvestmentPlan.js";
 import InvestmentCategory from "../models/InvestmentCategory.js";
-import ServiceType, { BusinessService, FreeOffering, IndividualBusinessService, InstitutionalService } from "../models/ServiceType.js";
+import ServiceType, {
+  BusinessService,
+  FreeOffering,
+  IndividualBusinessService,
+  InstitutionalService,
+} from "../models/ServiceType.js";
 import AgreementContent from "../models/AgreementContent.js";
 import NewsletterSubscriber from "../models/NewsletterSubscriber.js";
 import ResearchAnalysis from "../models/ResearchAnalysis.js";
@@ -1361,15 +1366,27 @@ export const createContact = async (req, res) => {
     const { firstName, lastName, phone, email, message } = req.body;
 
     if (!firstName || !lastName || !phone || !email || !message) {
-      return res.status(400).json({ success: false, message: "All fields are required" });
+      return res
+        .status(400)
+        .json({ success: false, message: "All fields are required" });
     }
 
-    const newContact = new Contact({ firstName, lastName, phone, email, message });
+    const newContact = new Contact({
+      firstName,
+      lastName,
+      phone,
+      email,
+      message,
+    });
     await newContact.save();
 
-    res.status(200).json({ success: true, message: "Message submitted successfully" });
+    res
+      .status(200)
+      .json({ success: true, message: "Message submitted successfully" });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Server Error", error: err.message });
+    res
+      .status(500)
+      .json({ success: false, message: "Server Error", error: err.message });
   }
 };
 
@@ -1457,6 +1474,7 @@ export const getAllFAQsInUser = async (req, res) => {
 
 export const createPlan = async (req, res) => {
   const userId = req.user.id;
+
   try {
     const {
       deliveryPreference,
@@ -1478,8 +1496,67 @@ export const createPlan = async (req, res) => {
       });
     }
 
-    // Create plan
+    const now = new Date();
+
+    // STEP 1: Check if user already has an active paid plan (not expired)
+    const activePaidPlan = await Plan.findOne({
+      userId,
+      serviceChoice: { $in: ["individual", "business", "institutional"] },
+      status: "active",
+    });
+
+    if (activePaidPlan) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "You already have an active paid plan. Please wait until it expires.",
+      });
+    }
+
+    // STEP 2: If trying to take a free plan
+    if (serviceChoice === "free") {
+      const existingFreePlan = await Plan.findOne({
+        userId,
+        serviceChoice: "free",
+      });
+
+      // Check if free plan already taken before
+      if (existingFreePlan) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "You have already taken the free plan. It cannot be taken again.",
+        });
+      }
+    }
+
+    // Deduct wallet for paid plans
+    if (totalPrice > 0) {
+      const transactionId = generateTransactionId();
+      const transaction = new Transaction({
+        userId,
+        amount: totalPrice,
+        type: "planPurchase",
+        status: "success",
+        transactionId,
+        description: `Payment received for ${serviceChoice} plan activation`,
+      });
+      await transaction.save();
+
+      const title = "Plan Purchased";
+      const body = `Your ${serviceChoice} plan has been successfully activated. Payment of ₹${totalPrice} was completed.`;
+
+      try {
+        await addNotification(userId, title, body);
+        // if (user.firebaseToken) await sendNotification(user.firebaseToken, title, body);
+      } catch (notificationError) {
+        console.error("Notification Error:", notificationError);
+      }
+    }
+
+    // STEP 3: Create the new plan
     const newPlan = new Plan({
+      userId,
       deliveryPreference,
       serviceChoice,
       startDate,
@@ -1489,12 +1566,11 @@ export const createPlan = async (req, res) => {
       businessServices,
       institutionalServices,
       totalPrice,
-      userId,
     });
 
     const savedPlan = await newPlan.save();
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: "Plan created successfully.",
       plan: savedPlan,
@@ -1512,7 +1588,6 @@ export const renewPlan = async (req, res) => {
   try {
     const userId = req.user?.id;
 
-    // Validate userId
     if (!userId) {
       return res.status(401).json({
         success: false,
@@ -1520,41 +1595,73 @@ export const renewPlan = async (req, res) => {
       });
     }
 
-    // Validate totalPrice if provided
-    const { totalPrice } = req.body;
-    if (totalPrice !== undefined && (typeof totalPrice !== "number" || totalPrice < 0)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid totalPrice. It must be a positive number.",
-      });
-    }
+    // Get the latest active plan
+    const existingPlan = await Plan.findOne({ userId }).sort({ createdAt: -1 });
+    console.log("existingPlan", existingPlan);
 
-    // Check if the user already has a plan
-    const existingPlan = await Plan.findOne({ userId });
     if (!existingPlan) {
       return res.status(404).json({
         success: false,
-        message: "No existing plan found for this user to renew.",
+        message: "No active plan found to renew.",
       });
     }
 
-    // Extend the current end date by 6 months
-    const extendedEndDate = new Date(existingPlan.endDate);
-    extendedEndDate.setMonth(extendedEndDate.getMonth() + 6);
-
-    existingPlan.endDate = extendedEndDate;
-
-    // Update totalPrice if provided
-    if (totalPrice !== undefined) {
-      existingPlan.totalPrice = totalPrice;
+    // ❌ Block renewal of free plans
+    if (existingPlan.serviceChoice === "free") {
+      return res.status(400).json({
+        success: false,
+        message: "Free plans cannot be renewed.",
+      });
     }
 
-    const updatedPlan = await existingPlan.save();
+    // 💸 Create transaction
+    const transactionId = generateTransactionId();
+    const transaction = new Transaction({
+      userId,
+      amount: existingPlan.totalPrice,
+      type: "planRenewal",
+      status: "success",
+      transactionId,
+      description: `Payment received for ${existingPlan.serviceChoice} plan renewal`,
+    });
+    await transaction.save();
+
+    // 🔔 Notification
+    const title = "Plan Renewed";
+    const body = `Your ${existingPlan.serviceChoice} plan has been renewed successfully. Payment of ₹${existingPlan.totalPrice} was completed.`;
+
+    try {
+      await addNotification(userId, title, body);
+      // if (user.firebaseToken) await sendNotification(user.firebaseToken, title, body);
+    } catch (notificationError) {
+      console.error("Notification Error:", notificationError);
+    }
+
+    // ✅ Proceed with renewing paid plan
+    const newStartDate = new Date(existingPlan.endDate);
+    const newEndDate = new Date(newStartDate);
+    newEndDate.setMonth(newEndDate.getMonth() + 6);
+
+    const renewedPlan = new Plan({
+      userId,
+      deliveryPreference: existingPlan.deliveryPreference,
+      serviceChoice: existingPlan.serviceChoice,
+      startDate: newStartDate,
+      endDate: newEndDate,
+      freeOfferings: existingPlan.freeOfferings,
+      individualBusinessServices: existingPlan.individualBusinessServices,
+      businessServices: existingPlan.businessServices,
+      institutionalServices: existingPlan.institutionalServices,
+      totalPrice: existingPlan.totalPrice,
+      status: "active",
+    });
+
+    const savedRenewedPlan = await renewedPlan.save();
 
     return res.status(200).json({
       success: true,
-      message: "Plan renewed successfully.",
-      plan: updatedPlan,
+      message: "Paid plan renewed successfully.",
+      plan: savedRenewedPlan,
     });
   } catch (error) {
     console.error("Error renewing plan:", error);
@@ -1565,12 +1672,12 @@ export const renewPlan = async (req, res) => {
   }
 };
 
-
 export const getPlanByUserId = async (req, res) => {
   try {
-    const userId  = req.user.id;
+    const userId = req.user.id;
 
     const plan = await Plan.findOne({ userId })
+      .sort({ createdAt: -1 })
       .populate("freeOfferings")
       .populate("individualBusinessServices")
       .populate("businessServices")
@@ -1601,7 +1708,12 @@ export const hasUserTakenPlan = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    const existingPlan = await Plan.findOne({ userId });
+    const existingPlan = await Plan.findOne({ userId })
+      .sort({ createdAt: -1 })
+      .populate("freeOfferings")
+      .populate("individualBusinessServices")
+      .populate("businessServices")
+      .populate("institutionalServices");
 
     if (existingPlan) {
       return res.status(200).json({
@@ -1625,3 +1737,6 @@ export const hasUserTakenPlan = async (req, res) => {
     });
   }
 };
+
+
+
