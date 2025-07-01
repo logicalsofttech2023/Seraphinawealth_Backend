@@ -21,6 +21,21 @@ const researchAnalysisSchema = new mongoose.Schema(
       enum: ["free", "individual", "business", "institutional"],
       required: true,
     },
+    freeOfferings: [
+      { type: mongoose.Schema.Types.ObjectId, ref: "FreeOffering" },
+    ],
+    individualBusinessServices: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "IndividualBusinessService",
+      },
+    ],
+    businessServices: [
+      { type: mongoose.Schema.Types.ObjectId, ref: "BusinessService" },
+    ],
+    institutionalServices: [
+      { type: mongoose.Schema.Types.ObjectId, ref: "InstitutionalService" },
+    ],
   },
   { timestamps: true }
 );

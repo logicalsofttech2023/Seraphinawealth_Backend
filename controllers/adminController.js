@@ -1142,12 +1142,10 @@ export const addIndividualBusinessService = async (req, res) => {
       .status(200)
       .json({ message: "Individual business service added", data: newService });
   } catch (err) {
-    res
-      .status(500)
-      .json({
-        message: "Error adding individual business service",
-        error: err.message,
-      });
+    res.status(500).json({
+      message: "Error adding individual business service",
+      error: err.message,
+    });
   }
 };
 
@@ -1199,12 +1197,10 @@ export const getIndividualBusinessServiceById = async (req, res) => {
       .status(200)
       .json({ message: "Fetched individual business service", data: service });
   } catch (err) {
-    res
-      .status(500)
-      .json({
-        message: "Error fetching individual business service",
-        error: err.message,
-      });
+    res.status(500).json({
+      message: "Error fetching individual business service",
+      error: err.message,
+    });
   }
 };
 
@@ -1228,12 +1224,10 @@ export const updateIndividualBusinessService = async (req, res) => {
       .status(200)
       .json({ message: "Individual business service updated", data: updated });
   } catch (err) {
-    res
-      .status(500)
-      .json({
-        message: "Error updating individual business service",
-        error: err.message,
-      });
+    res.status(500).json({
+      message: "Error updating individual business service",
+      error: err.message,
+    });
   }
 };
 
@@ -1250,12 +1244,28 @@ export const deleteIndividualBusinessService = async (req, res) => {
       .status(200)
       .json({ message: "Individual business service deleted", data: deleted });
   } catch (err) {
-    res
-      .status(500)
-      .json({
-        message: "Error deleting individual business service",
-        error: err.message,
-      });
+    res.status(500).json({
+      message: "Error deleting individual business service",
+      error: err.message,
+    });
+  }
+};
+
+export const getAllIndividualBusinessServicesInAdmin = async (req, res) => {
+  try {
+    const data = await IndividualBusinessService.find().sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      message: "Fetched Data successfully",
+      data: data,
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: "Error fetching Data",
+      error: err.message,
+    });
   }
 };
 
@@ -1375,6 +1385,24 @@ export const deleteBusinessService = async (req, res) => {
   }
 };
 
+export const getAllBusinessServicesInAdmin = async (req, res) => {
+  try {
+    const data = await BusinessService.find().sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      message: "Fetched Data successfully",
+      data: data,
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: "Error fetching Data",
+      error: err.message,
+    });
+  }
+};
+
 // Institutional Service Controllers
 export const addInstitutionalService = async (req, res) => {
   try {
@@ -1392,12 +1420,10 @@ export const addInstitutionalService = async (req, res) => {
       .status(200)
       .json({ message: "Institutional service added", data: newService });
   } catch (err) {
-    res
-      .status(500)
-      .json({
-        message: "Error adding institutional service",
-        error: err.message,
-      });
+    res.status(500).json({
+      message: "Error adding institutional service",
+      error: err.message,
+    });
   }
 };
 
@@ -1449,12 +1475,10 @@ export const getInstitutionalServiceById = async (req, res) => {
       .status(200)
       .json({ message: "Fetched institutional service", data: service });
   } catch (err) {
-    res
-      .status(500)
-      .json({
-        message: "Error fetching institutional service",
-        error: err.message,
-      });
+    res.status(500).json({
+      message: "Error fetching institutional service",
+      error: err.message,
+    });
   }
 };
 
@@ -1478,12 +1502,10 @@ export const updateInstitutionalService = async (req, res) => {
       .status(200)
       .json({ message: "Institutional service updated", data: updated });
   } catch (err) {
-    res
-      .status(500)
-      .json({
-        message: "Error updating institutional service",
-        error: err.message,
-      });
+    res.status(500).json({
+      message: "Error updating institutional service",
+      error: err.message,
+    });
   }
 };
 
@@ -1500,12 +1522,28 @@ export const deleteInstitutionalService = async (req, res) => {
       .status(200)
       .json({ message: "Institutional service deleted", data: deleted });
   } catch (err) {
-    res
-      .status(500)
-      .json({
-        message: "Error deleting institutional service",
-        error: err.message,
-      });
+    res.status(500).json({
+      message: "Error deleting institutional service",
+      error: err.message,
+    });
+  }
+};
+
+export const getAllInstitutionalServicesInAdmin = async (req, res) => {
+  try {
+    const data = await InstitutionalService.find().sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      message: "Fetched Data successfully",
+      data: data,
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: "Error fetching Data",
+      error: err.message,
+    });
   }
 };
 
@@ -1599,7 +1637,15 @@ export const deleteSubscriber = async (req, res) => {
 export const addResearchAnalysis = async (req, res) => {
   try {
     const files = req.files?.documents || [];
-    const { title = "", description = "", serviceChoice } = req.body;
+    const {
+      title = "",
+      description = "",
+      serviceChoice,
+      freeOfferings = "[]",
+      individualBusinessServices = "[]",
+      businessServices = "[]",
+      institutionalServices = "[]",
+    } = req.body;
 
     // Validation
     if (!files.length || !title || !description || !serviceChoice) {
@@ -1608,6 +1654,22 @@ export const addResearchAnalysis = async (req, res) => {
         message: "Files, title, description, and serviceChoice are required.",
       });
     }
+
+    // Safe parsing function
+    const parseArray = (input) => {
+      try {
+        return typeof input === "string" ? JSON.parse(input) : input;
+      } catch {
+        return [];
+      }
+    };
+
+    const parsedFreeOfferings = parseArray(freeOfferings);
+    const parsedIndividualBusinessServices = parseArray(
+      individualBusinessServices
+    );
+    const parsedBusinessServices = parseArray(businessServices);
+    const parsedInstitutionalServices = parseArray(institutionalServices);
 
     const fileNames = [];
 
@@ -1629,12 +1691,15 @@ export const addResearchAnalysis = async (req, res) => {
       fileNames.push(file.filename);
     }
 
-    // Create one ResearchAnalysis document with multiple files
     const doc = new ResearchAnalysis({
       title: title.trim(),
       description: description.trim(),
       documents: fileNames,
       serviceChoice,
+      freeOfferings: parsedFreeOfferings,
+      individualBusinessServices: parsedIndividualBusinessServices,
+      businessServices: parsedBusinessServices,
+      institutionalServices: parsedInstitutionalServices,
     });
 
     await doc.save();
@@ -1655,10 +1720,19 @@ export const addResearchAnalysis = async (req, res) => {
 
 export const updateResearchAnalysis = async (req, res) => {
   try {
-    const { title = "", description = "", serviceChoice, id } = req.body;
-    const files = req.files?.documents || []; // Updated: multiple file input named 'documents'
+    const {
+      id,
+      title = "",
+      description = "",
+      serviceChoice,
+      freeOfferings = "[]",
+      individualBusinessServices = "[]",
+      businessServices = "[]",
+      institutionalServices = "[]",
+    } = req.body;
 
-    // Basic validation
+    const files = req.files?.documents || [];
+
     if (!id || !title.trim() || !description.trim() || !serviceChoice) {
       return res.status(400).json({
         success: false,
@@ -1667,7 +1741,6 @@ export const updateResearchAnalysis = async (req, res) => {
     }
 
     const existingDoc = await ResearchAnalysis.findById(id);
-
     if (!existingDoc) {
       return res.status(404).json({
         success: false,
@@ -1675,9 +1748,23 @@ export const updateResearchAnalysis = async (req, res) => {
       });
     }
 
-    // Validate and collect new file names
-    const newFileNames = [];
+    // Safe parsing function
+    const parseArray = (input) => {
+      try {
+        return typeof input === "string" ? JSON.parse(input) : input;
+      } catch {
+        return [];
+      }
+    };
 
+    const parsedFreeOfferings = parseArray(freeOfferings);
+    const parsedIndividualBusinessServices = parseArray(
+      individualBusinessServices
+    );
+    const parsedBusinessServices = parseArray(businessServices);
+    const parsedInstitutionalServices = parseArray(institutionalServices);
+
+    const newFileNames = [];
     for (const file of files) {
       if (!ALLOWED_EXTENSIONS.test(file.originalname)) {
         return res.status(400).json({
@@ -1696,12 +1783,15 @@ export const updateResearchAnalysis = async (req, res) => {
       newFileNames.push(file.filename);
     }
 
-    // Update document fields
+    // Update fields
     existingDoc.title = title.trim();
     existingDoc.description = description.trim();
     existingDoc.serviceChoice = serviceChoice;
+    existingDoc.freeOfferings = parsedFreeOfferings;
+    existingDoc.individualBusinessServices = parsedIndividualBusinessServices;
+    existingDoc.businessServices = parsedBusinessServices;
+    existingDoc.institutionalServices = parsedInstitutionalServices;
 
-    // Append new files to the existing documents array
     if (newFileNames.length) {
       existingDoc.documents.push(...newFileNames);
     }
@@ -1793,6 +1883,138 @@ export const getAllResearchAnalysisInAdmin = async (req, res) => {
       success: false,
       message: "Unable to fetch research analysis",
     });
+  }
+};
+
+export const getFreeOfferingResearch = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, search = "" } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const filter = {
+      freeOfferings: { $exists: true, $ne: [] },
+      $or: [
+        { title: { $regex: search, $options: "i" } },
+        { description: { $regex: search, $options: "i" } },
+      ],
+    };
+
+    const data = await ResearchAnalysis.find(filter)
+      .skip(skip)
+      .limit(parseInt(limit))
+      .sort({ createdAt: -1 });
+
+    const total = await ResearchAnalysis.countDocuments(filter);
+
+    res.status(200).json({
+      success: true,
+      total,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      data,
+    });
+  } catch (error) {
+    console.error("Error fetching Free Offering research:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+export const getIndividualBusinessResearch = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, search = "" } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const filter = {
+      individualBusinessServices: { $exists: true, $ne: [] },
+      $or: [
+        { title: { $regex: search, $options: "i" } },
+        { description: { $regex: search, $options: "i" } },
+      ],
+    };
+
+    const data = await ResearchAnalysis.find(filter)
+      .skip(skip)
+      .limit(parseInt(limit))
+      .sort({ createdAt: -1 });
+
+    const total = await ResearchAnalysis.countDocuments(filter);
+
+    res.status(200).json({
+      success: true,
+      total,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      data,
+    });
+  } catch (error) {
+    console.error("Error fetching Individual Business research:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+export const getBusinessServicesResearch = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, search = "" } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const filter = {
+      businessServices: { $exists: true, $ne: [] },
+      $or: [
+        { title: { $regex: search, $options: "i" } },
+        { description: { $regex: search, $options: "i" } },
+      ],
+    };
+
+    const data = await ResearchAnalysis.find(filter)
+      .skip(skip)
+      .limit(parseInt(limit))
+      .sort({ createdAt: -1 });
+
+    const total = await ResearchAnalysis.countDocuments(filter);
+
+    res.status(200).json({
+      success: true,
+      total,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      data,
+    });
+  } catch (error) {
+    console.error("Error fetching Business Services research:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+export const getInstitutionalResearch = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, search = "" } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const filter = {
+      institutionalServices: { $exists: true, $ne: [] },
+      $or: [
+        { title: { $regex: search, $options: "i" } },
+        { description: { $regex: search, $options: "i" } },
+      ],
+    };
+
+    const data = await ResearchAnalysis.find(filter)
+      .skip(skip)
+      .limit(parseInt(limit))
+      .sort({ createdAt: -1 });
+
+    const total = await ResearchAnalysis.countDocuments(filter);
+
+    res.status(200).json({
+      success: true,
+      total,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      data,
+    });
+  } catch (error) {
+    console.error("Error fetching Institutional research:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
 
@@ -1935,12 +2157,10 @@ export const addPlan = async (req, res) => {
       !deliveryPreference ||
       !serviceChoice
     ) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "All required fields must be filled.",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "All required fields must be filled.",
+      });
     }
 
     const newPlan = new Plan({
@@ -1957,13 +2177,11 @@ export const addPlan = async (req, res) => {
 
     await newPlan.save();
 
-    res
-      .status(201)
-      .json({
-        success: true,
-        message: "Plan created successfully",
-        plan: newPlan,
-      });
+    res.status(201).json({
+      success: true,
+      message: "Plan created successfully",
+      plan: newPlan,
+    });
   } catch (error) {
     res
       .status(500)
@@ -1984,13 +2202,11 @@ export const updatePlan = async (req, res) => {
         .json({ success: false, message: "Plan not found" });
     }
 
-    res
-      .status(200)
-      .json({
-        success: true,
-        message: "Plan updated successfully",
-        plan: updatedPlan,
-      });
+    res.status(200).json({
+      success: true,
+      message: "Plan updated successfully",
+      plan: updatedPlan,
+    });
   } catch (error) {
     res
       .status(500)
@@ -2204,3 +2420,40 @@ export const getInstitutionalPlanUsers = async (req, res) => {
     });
   }
 };
+
+export const verifyUserByAdmin = async (req, res) => {
+  try {
+    const { status, userId } = req.body; // status: "approved", "rejected", or "pending"
+
+    // Validate status
+    const validStatuses = ["pending", "approved", "rejected"];
+    if (!validStatuses.includes(status)) {
+      return res
+        .status(400)
+        .json({ message: "Invalid status", status: false });
+    }
+
+    // Update user status
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { adminVerified: status },
+      { new: true }
+    ).select("-otp -otpExpiresAt");
+
+    if (!updatedUser) {
+      return res
+        .status(404)
+        .json({ message: "User not found", status: false });
+    }
+
+    res.status(200).json({
+      message: `User verification status updated to '${status}'`,
+      status: true,
+      data: updatedUser,
+    });
+  } catch (error) {
+    console.error("Error verifying user:", error);
+    res.status(500).json({ message: "Server error", status: false });
+  }
+};
+

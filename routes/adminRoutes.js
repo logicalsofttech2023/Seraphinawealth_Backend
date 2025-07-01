@@ -77,6 +77,14 @@ import {
   updateResearchAnalysis,
   deleteResearchDocument,
   getAllFreeOfferingsInAdmin,
+  getAllIndividualBusinessServicesInAdmin,
+  getAllBusinessServicesInAdmin,
+  getAllInstitutionalServicesInAdmin,
+  getFreeOfferingResearch,
+  getIndividualBusinessResearch,
+  getBusinessServicesResearch,
+  getInstitutionalResearch,
+  verifyUserByAdmin,
 } from "../controllers/adminController.js";
 
 import { authMiddleware } from "../middlewares/authMiddleware.js";
@@ -265,20 +273,45 @@ router.post(
   updateResearchAnalysis
 );
 
-
-
 router.get(
   "/getAllResearchAnalysis",
   authMiddleware,
   getAllResearchAnalysisInAdmin
 );
+router.get("/getFreeOfferingResearch", authMiddleware, getFreeOfferingResearch);
+
+router.get(
+  "/getIndividualBusinessResearch",
+  authMiddleware,
+  getIndividualBusinessResearch
+);
+
+router.get(
+  "/getBusinessServicesResearch",
+  authMiddleware,
+  getBusinessServicesResearch
+);
+
+router.get(
+  "/getInstitutionalResearch",
+  authMiddleware,
+  getInstitutionalResearch
+);
+
 router.get("/getResearchAnalysisById", authMiddleware, getResearchAnalysisById);
 router.get("/deleteResearchAnalysis", authMiddleware, deleteResearchAnalysis);
 router.post("/deleteResearchDocument", authMiddleware, deleteResearchDocument);
 
 router.get("/getAllFreeOfferingsInAdmin", getAllFreeOfferingsInAdmin);
-
-
+router.get(
+  "/getAllIndividualBusinessServicesInAdmin",
+  getAllIndividualBusinessServicesInAdmin
+);
+router.get("/getAllBusinessServicesInAdmin", getAllBusinessServicesInAdmin);
+router.get(
+  "/getAllInstitutionalServicesInAdmin",
+  getAllInstitutionalServicesInAdmin
+);
 
 router.post("/deleteSubscriber", authMiddleware, deleteSubscriber);
 router.get("/getAllSubscribers", authMiddleware, getAllSubscribers);
@@ -299,5 +332,9 @@ router.get(
   authMiddleware,
   getInstitutionalPlanUsers
 );
+
+router.post("/verifyUserByAdmin", authMiddleware, verifyUserByAdmin);
+
+
 
 export default router;

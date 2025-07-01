@@ -81,6 +81,67 @@ export const generateOtp = async (req, res) => {
   }
 };
 
+// export const verifyOtp = async (req, res) => {
+//   try {
+//     const { phone, otp, firebaseToken } = req.body;
+
+//     if (!phone || !otp) {
+//       return res.status(400).json({
+//         message: "phone, and otp are required",
+//         status: false,
+//       });
+//     }
+
+//     let user = await User.findOne({ phone });
+
+//     if (!user || user.otp !== otp) {
+//       return res.status(400).json({ message: "Invalid OTP", status: false });
+//     }
+
+//     if (new Date() > new Date(user.otpExpiresAt)) {
+//       return res.status(400).json({ message: "OTP expired", status: false });
+//     }
+
+//     user.otpExpiresAt = "";
+//     user.isVerified = true;
+//     user.firebaseToken = firebaseToken;
+//     await user.save();
+
+//     let token = "";
+//     let userExit = false;
+//     if (user.firstName) {
+//       token = generateJwtToken(user);
+//       userExit = true;
+//     }
+
+//     const formattedUser = {
+//       _id: user._id,
+//       userEmail: user.userEmail || "",
+//       phone: user.phone || "",
+//       profileImage: user.profileImage || "",
+//       otp: user.otp || "",
+//       otpExpiresAt: user.otpExpiresAt || "",
+//       isVerified: user.isVerified,
+//       role: user.role || "user",
+//       firebaseToken: firebaseToken || "",
+//       name: user.name || "",
+//       createdAt: user.createdAt,
+//       updatedAt: user.updatedAt,
+//     };
+
+//     res.status(200).json({
+//       message: "OTP verified successfully",
+//       status: true,
+//       token,
+//       userExit,
+//       data: formattedUser,
+//     });
+//   } catch (error) {
+//     res.status(500).json({ message: "Server Error", status: false });
+//   }
+// };
+
+
 export const verifyOtp = async (req, res) => {
   try {
     const { phone, otp, firebaseToken } = req.body;
@@ -109,9 +170,19 @@ export const verifyOtp = async (req, res) => {
 
     let token = "";
     let userExit = false;
+
     if (user.firstName) {
-      token = generateJwtToken(user);
       userExit = true;
+
+      if (user.adminVerified !== "approved") {
+        return res.status(403).json({
+          message: "Your account is not verified by admin yet.",
+          status: false,
+          userExit: true,
+        });
+      }
+
+      token = generateJwtToken(user);
     }
 
     const formattedUser = {
@@ -127,6 +198,7 @@ export const verifyOtp = async (req, res) => {
       name: user.name || "",
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
+      adminVerified: user.adminVerified || "pending",
     };
 
     res.status(200).json({
@@ -209,6 +281,7 @@ export const completeRegistration = async (req, res) => {
         .json({ message: "First and last names are required", status: false });
     }
 
+    // Update profile fields
     user.firstName = firstName;
     user.middleName = middleName || "";
     user.lastName = lastName;
@@ -226,16 +299,26 @@ export const completeRegistration = async (req, res) => {
     user.panFrontImage = panFrontImage;
     user.panBackImage = panBackImage;
 
-    user.isVerified = true;
-
     await user.save();
 
+    // Admin approval check before generating token
+    if (user.adminVerified !== "approved") {
+      return res.status(403).json({
+        message: "Your profile is submitted successfully and is pending admin approval.",
+        status: true, // true because registration is complete
+        userExit: true,
+        token: "",
+      });
+    }
+
+    // Generate token only if admin has approved
     const token = generateJwtToken(user);
 
     res.status(201).json({
       message: "User registered successfully",
       status: true,
       token,
+      userExit: true,
       data: user,
     });
   } catch (error) {
@@ -1349,7 +1432,7 @@ export const subscribeNewsletter = async (req, res) => {
 
 export const getAllResearchAnalysis = async (req, res) => {
   try {
-    const data = await ResearchAnalysis.findOne().sort({ createdAt: -1 });
+    const data = await ResearchAnalysis.find({serviceChoice: "free"}).sort({ createdAt: -1 });
     res
       .status(200)
       .json({ success: true, message: "Fetched successfully", data });
@@ -1738,5 +1821,56 @@ export const hasUserTakenPlan = async (req, res) => {
   }
 };
 
+export const getResearchByUserPlan = async (req, res) => {
+  const userId = req.user?.id;
 
+  try {
+    let plan = await Plan.findOne({ userId, status: "active" }).sort({ createdAt: -1 });
 
+    if (!plan) {
+      return res.status(404).json({
+        success: false,
+        message: "No active plan found for this user.",
+      });
+    }
+    console.log(plan);
+    
+
+    // Extract allowed service IDs from plan (if any)
+    const individualIds = plan?.individualBusinessServices || [];
+    const businessIds = plan?.businessServices || [];
+    const institutionalIds = plan?.institutionalServices || [];
+
+    // Always include free offerings (visible to everyone)
+    const freeDocsPromise = ResearchAnalysis.find({
+      freeOfferings: { $exists: true, $ne: [] },
+    });
+
+    // Conditionally include restricted services only if user has them in plan
+    const conditionalDocsPromise = ResearchAnalysis.find({
+      $or: [
+        { individualBusinessServices: { $in: individualIds } },
+        { businessServices: { $in: businessIds } },
+        { institutionalServices: { $in: institutionalIds } },
+      ],
+    });
+
+    const [freeDocs, conditionalDocs] = await Promise.all([
+      freeDocsPromise,
+      plan ? conditionalDocsPromise : [],
+    ]);
+
+    const allDocs = [...freeDocs, ...conditionalDocs];
+
+    return res.status(200).json({
+      success: true,
+      data: allDocs,
+    });
+  } catch (error) {
+    console.error("Error fetching research by plan:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};

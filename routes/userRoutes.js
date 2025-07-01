@@ -46,6 +46,7 @@ import {
   getPlanByUserId,
   hasUserTakenPlan,
   renewPlan,
+  getResearchByUserPlan,
 } from "../controllers/userController.js";
 
 import {authMiddleware, optionalAuthMiddleware} from "../middlewares/authMiddleware.js";
@@ -156,6 +157,7 @@ router.get("/renewPlan",authMiddleware, renewPlan);
 
 router.get("/getPlanByUserId",authMiddleware, getPlanByUserId);
 router.get("/hasUserTakenPlan",optionalAuthMiddleware, hasUserTakenPlan);
+router.get("/getResearchByUserPlan",optionalAuthMiddleware, getResearchByUserPlan);
 
 
 
