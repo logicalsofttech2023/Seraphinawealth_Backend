@@ -85,6 +85,11 @@ import {
   getBusinessServicesResearch,
   getInstitutionalResearch,
   verifyUserByAdmin,
+  getDashboardCount,
+  getGraphStats,
+  getUserDetailInAdmin,
+  updateNewsletterStatus,
+  replyToContact,
 } from "../controllers/adminController.js";
 
 import { authMiddleware } from "../middlewares/authMiddleware.js";
@@ -334,6 +339,11 @@ router.get(
 );
 
 router.post("/verifyUserByAdmin", authMiddleware, verifyUserByAdmin);
+router.get("/getDashboardCount", authMiddleware, getDashboardCount);
+router.get("/getGraphStats",authMiddleware, getGraphStats);
+router.get("/getUserDetailInAdmin", authMiddleware, getUserDetailInAdmin);
+router.post("/updateNewsletterStatus", authMiddleware, updateNewsletterStatus);
+router.post("/replyToContact", authMiddleware, replyToContact);
 
 
 

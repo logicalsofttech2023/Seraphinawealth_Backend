@@ -1874,3 +1874,21 @@ export const getResearchByUserPlan = async (req, res) => {
     });
   }
 };
+
+export const getAllContactReplies = async (req, res) => {
+  try {
+    const contacts = await Contact.find().sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      message: "Fetched all contact replies",
+      data: contacts,
+    });
+  } catch (error) {
+    console.error("Error fetching contact replies:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
+  }
+};

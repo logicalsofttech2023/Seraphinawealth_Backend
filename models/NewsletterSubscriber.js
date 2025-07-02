@@ -9,6 +9,11 @@ const newsletterSubscriberSchema = new mongoose.Schema(
       lowercase: true,
       trim: true,
     },
+    status: {
+      type: String,
+      enum: ["Subscribed", "Unsubscribed"],
+      default: "Subscribed",
+    },
   },
   { timestamps: true }
 );

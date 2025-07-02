@@ -7,6 +7,14 @@ const contactSchema = new mongoose.Schema({
   email: { type: String, required: true },
   message: { type: String, required: true },
   createdAt: { type: Date, default: Date.now },
+  reply: { type: String },
+  repliedBy: { type: String },
+  repliedAt: { type: Date },
+  replied: {
+    type: String,
+    enum: ["Pending", "Replied"],
+    default: "Pending",
+  },
 });
 
 export default mongoose.model("Contact", contactSchema);

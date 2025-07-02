@@ -1718,6 +1718,193 @@ export const addResearchAnalysis = async (req, res) => {
   }
 };
 
+const notifyUsersByService = async ({
+  serviceField,
+  serviceChoiceType,
+  serviceIds,
+  fileNames,
+  title,
+  description,
+}) => {
+  if (!serviceIds.length) return;
+
+  try {
+    const matchingPlans = await Plan.find({
+      serviceChoice: serviceChoiceType,
+      [serviceField]: { $in: serviceIds },
+    }).select("userId");
+
+    const userIds = matchingPlans.map((plan) => plan.userId);
+
+    const users = await User.find({ _id: { $in: userIds } }).select(
+      "userEmail"
+    );
+    const planEmailList = users.map((user) => user.userEmail).filter(Boolean);
+
+    // For freeOffering only: include subscribed newsletter users
+    let newsletterEmailList = [];
+    if (serviceField === "freeOfferings") {
+      const subscribers = await NewsletterSubscriber.find({
+        status: "Subscribed",
+      }).select("email");
+      newsletterEmailList = subscribers.map((s) => s.email).filter(Boolean);
+    }
+
+    // Merge and deduplicate email list
+    const allRecipients = [
+      ...new Set([...planEmailList, ...newsletterEmailList]),
+    ];
+
+    const baseUrl = `${process.env.BASE_URL}/uploads/documents`;
+    const fileLinks = fileNames
+      .map((name) => `${baseUrl}/${name}`)
+      .join("<br>");
+
+    const subject = `New Research Document: ${title}`;
+    const html = `
+      <h3>${title}</h3>
+      ${description}
+      <p><strong>Documents:</strong><br>${fileLinks}</p>
+    `;
+
+    for (const email of allRecipients) {
+      await sendMail({ to: email, subject, html });
+    }
+
+    console.log(
+      `Mail sent to ${allRecipients.length} users for ${serviceField}`
+    );
+  } catch (err) {
+    console.error(`Error sending email for ${serviceField}:`, err);
+  }
+};
+
+// export const addResearchAnalysis = async (req, res) => {
+//   try {
+//     const files = req.files?.documents || [];
+//     const {
+//       title = "",
+//       description = "",
+//       serviceChoice,
+//       freeOfferings = "[]",
+//       individualBusinessServices = "[]",
+//       businessServices = "[]",
+//       institutionalServices = "[]",
+//     } = req.body;
+
+//     // Validation
+//     if (!files.length || !title || !description || !serviceChoice) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Files, title, description, and serviceChoice are required.",
+//       });
+//     }
+
+//     // Safe parsing function
+//     const parseArray = (input) => {
+//       try {
+//         return typeof input === "string" ? JSON.parse(input) : input;
+//       } catch {
+//         return [];
+//       }
+//     };
+
+//     const parsedFreeOfferings = parseArray(freeOfferings);
+//     const parsedIndividualBusinessServices = parseArray(
+//       individualBusinessServices
+//     );
+//     const parsedBusinessServices = parseArray(businessServices);
+//     const parsedInstitutionalServices = parseArray(institutionalServices);
+
+//     const fileNames = [];
+
+//     for (const file of files) {
+//       if (!ALLOWED_EXTENSIONS.test(file.originalname)) {
+//         return res.status(400).json({
+//           success: false,
+//           message: `Invalid file type for file ${file.originalname}`,
+//         });
+//       }
+
+//       if (file.size > MAX_FILE_SIZE) {
+//         return res.status(400).json({
+//           success: false,
+//           message: `File ${file.originalname} exceeds the 20MB limit.`,
+//         });
+//       }
+
+//       fileNames.push(file.filename);
+//     }
+
+//     const doc = new ResearchAnalysis({
+//       title: title.trim(),
+//       description: description.trim(),
+//       documents: fileNames,
+//       serviceChoice,
+//       freeOfferings: parsedFreeOfferings,
+//       individualBusinessServices: parsedIndividualBusinessServices,
+//       businessServices: parsedBusinessServices,
+//       institutionalServices: parsedInstitutionalServices,
+//     });
+
+//     await doc.save();
+
+//     // 🚀 Notify in background (non-blocking)
+//     setImmediate(async () => {
+//       try {
+//         await Promise.allSettled([
+//           notifyUsersByService({
+//             serviceField: "freeOfferings",
+//             serviceChoiceType: "free",
+//             serviceIds: parsedFreeOfferings,
+//             fileNames,
+//             title,
+//             description,
+//           }),
+//           notifyUsersByService({
+//             serviceField: "individualBusinessServices",
+//             serviceChoiceType: "individual",
+//             serviceIds: parsedIndividualBusinessServices,
+//             fileNames,
+//             title,
+//             description,
+//           }),
+//           notifyUsersByService({
+//             serviceField: "businessServices",
+//             serviceChoiceType: "business",
+//             serviceIds: parsedBusinessServices,
+//             fileNames,
+//             title,
+//             description,
+//           }),
+//           notifyUsersByService({
+//             serviceField: "institutionalServices",
+//             serviceChoiceType: "institutional",
+//             serviceIds: parsedInstitutionalServices,
+//             fileNames,
+//             title,
+//             description,
+//           }),
+//         ]);
+//       } catch (notifyErr) {
+//         console.error("Notification background error:", notifyErr);
+//       }
+//     });
+
+//     return res.status(201).json({
+//       success: true,
+//       message: "Research document uploaded successfully.",
+//       data: doc,
+//     });
+//   } catch (error) {
+//     console.error("Error in addResearchAnalysis:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal Server Error",
+//     });
+//   }
+// };
+
 export const updateResearchAnalysis = async (req, res) => {
   try {
     const {
@@ -1888,7 +2075,7 @@ export const getAllResearchAnalysisInAdmin = async (req, res) => {
 
 export const getFreeOfferingResearch = async (req, res) => {
   try {
-    const { page = 1, limit = 10, search = "" } = req.query;
+    const { page = 1, limit = 10, search = "", startDate, endDate } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
     const filter = {
@@ -1898,6 +2085,14 @@ export const getFreeOfferingResearch = async (req, res) => {
         { description: { $regex: search, $options: "i" } },
       ],
     };
+
+    // Add date filter if both startDate and endDate are provided
+    if (startDate && endDate) {
+      filter.createdAt = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate),
+      };
+    }
 
     const data = await ResearchAnalysis.find(filter)
       .skip(skip)
@@ -1921,7 +2116,7 @@ export const getFreeOfferingResearch = async (req, res) => {
 
 export const getIndividualBusinessResearch = async (req, res) => {
   try {
-    const { page = 1, limit = 10, search = "" } = req.query;
+    const { page = 1, limit = 10, search = "", startDate, endDate } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
     const filter = {
@@ -1931,6 +2126,13 @@ export const getIndividualBusinessResearch = async (req, res) => {
         { description: { $regex: search, $options: "i" } },
       ],
     };
+
+    if (startDate && endDate) {
+      filter.createdAt = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate),
+      };
+    }
 
     const data = await ResearchAnalysis.find(filter)
       .skip(skip)
@@ -1954,7 +2156,7 @@ export const getIndividualBusinessResearch = async (req, res) => {
 
 export const getBusinessServicesResearch = async (req, res) => {
   try {
-    const { page = 1, limit = 10, search = "" } = req.query;
+    const { page = 1, limit = 10, search = "", startDate, endDate } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
     const filter = {
@@ -1964,6 +2166,13 @@ export const getBusinessServicesResearch = async (req, res) => {
         { description: { $regex: search, $options: "i" } },
       ],
     };
+
+    if (startDate && endDate) {
+      filter.createdAt = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate),
+      };
+    }
 
     const data = await ResearchAnalysis.find(filter)
       .skip(skip)
@@ -1987,7 +2196,7 @@ export const getBusinessServicesResearch = async (req, res) => {
 
 export const getInstitutionalResearch = async (req, res) => {
   try {
-    const { page = 1, limit = 10, search = "" } = req.query;
+    const { page = 1, limit = 10, search = "", startDate, endDate } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
     const filter = {
@@ -1997,6 +2206,13 @@ export const getInstitutionalResearch = async (req, res) => {
         { description: { $regex: search, $options: "i" } },
       ],
     };
+
+    if (startDate && endDate) {
+      filter.createdAt = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate),
+      };
+    }
 
     const data = await ResearchAnalysis.find(filter)
       .skip(skip)
@@ -2428,9 +2644,7 @@ export const verifyUserByAdmin = async (req, res) => {
     // Validate status
     const validStatuses = ["pending", "approved", "rejected"];
     if (!validStatuses.includes(status)) {
-      return res
-        .status(400)
-        .json({ message: "Invalid status", status: false });
+      return res.status(400).json({ message: "Invalid status", status: false });
     }
 
     // Update user status
@@ -2441,9 +2655,7 @@ export const verifyUserByAdmin = async (req, res) => {
     ).select("-otp -otpExpiresAt");
 
     if (!updatedUser) {
-      return res
-        .status(404)
-        .json({ message: "User not found", status: false });
+      return res.status(404).json({ message: "User not found", status: false });
     }
 
     res.status(200).json({
@@ -2457,3 +2669,278 @@ export const verifyUserByAdmin = async (req, res) => {
   }
 };
 
+export const getDashboardCount = async (req, res) => {
+  try {
+    // Step 1: Get total users
+    const totalUsers = await User.countDocuments();
+
+    // Step 2: Get all plans with required fields
+    const plans = await Plan.find(
+      {},
+      {
+        userId: 1,
+        freeOfferings: 1,
+        individualBusinessServices: 1,
+        businessServices: 1,
+        institutionalServices: 1,
+        totalPrice: 1,
+      }
+    ).lean();
+
+    // Counters
+    let totalFreeOfferings = 0;
+
+    let totalIndividualBusinessServices = 0;
+    let individualBusinessServicesAmount = 0;
+
+    let totalBusinessServices = 0;
+    let businessServicesAmount = 0;
+
+    let totalInstitutionalServices = 0;
+    let institutionalServicesAmount = 0;
+
+    for (const plan of plans) {
+      totalFreeOfferings += plan.freeOfferings?.length || 0;
+
+      const ibsCount = plan.individualBusinessServices?.length || 0;
+      const bsCount = plan.businessServices?.length || 0;
+      const insCount = plan.institutionalServices?.length || 0;
+
+      totalIndividualBusinessServices += ibsCount;
+      totalBusinessServices += bsCount;
+      totalInstitutionalServices += insCount;
+
+      // Add amount only if that plan contains those services
+      if (ibsCount > 0)
+        individualBusinessServicesAmount += plan.totalPrice || 0;
+      if (bsCount > 0) businessServicesAmount += plan.totalPrice || 0;
+      if (insCount > 0) institutionalServicesAmount += plan.totalPrice || 0;
+    }
+
+    return res.status(200).json({
+      success: true,
+      stats: {
+        totalUsers,
+
+        totalFreeOfferings,
+
+        totalIndividualBusinessServices,
+        individualBusinessServicesAmount,
+
+        totalBusinessServices,
+        businessServicesAmount,
+
+        totalInstitutionalServices,
+        institutionalServicesAmount,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching dashboard stats:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error while fetching dashboard stats.",
+    });
+  }
+};
+
+export const getGraphStats = async (req, res) => {
+  try {
+    const now = new Date();
+
+    // Utility to get start of day/week/month/year
+    const getStartOf = (unit) => {
+      const d = new Date(now);
+      if (unit === "day") {
+        d.setHours(0, 0, 0, 0);
+      } else if (unit === "week") {
+        const day = d.getDay(); // 0 (Sun) - 6 (Sat)
+        const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Monday as start
+        d.setDate(diff);
+        d.setHours(0, 0, 0, 0);
+      } else if (unit === "month") {
+        d.setDate(1);
+        d.setHours(0, 0, 0, 0);
+      } else if (unit === "3month") {
+        d.setMonth(d.getMonth() - 2);
+        d.setDate(1);
+        d.setHours(0, 0, 0, 0);
+      } else if (unit === "6month") {
+        d.setMonth(d.getMonth() - 5);
+        d.setDate(1);
+        d.setHours(0, 0, 0, 0);
+      } else if (unit === "year") {
+        d.setMonth(0);
+        d.setDate(1);
+        d.setHours(0, 0, 0, 0);
+      }
+      return d;
+    };
+
+    const ranges = {
+      "1d": getStartOf("day"),
+      "1w": getStartOf("week"),
+      "1m": getStartOf("month"),
+      "3m": getStartOf("3month"),
+      "6m": getStartOf("6month"),
+      "1y": getStartOf("year"),
+    };
+
+    const stats = {};
+
+    for (const [label, fromDate] of Object.entries(ranges)) {
+      const plans = await Plan.find({
+        createdAt: { $gte: fromDate, $lte: now },
+      })
+        .select("totalPrice")
+        .lean();
+
+      const count = plans.length;
+      const totalAmount = plans.reduce(
+        (sum, plan) => sum + (plan.totalPrice || 0),
+        0
+      );
+
+      stats[label] = { count, totalAmount };
+    }
+
+    // All-time total
+    const allPlans = await Plan.find().select("totalPrice").lean();
+    const totalAmountTillNow = allPlans.reduce(
+      (sum, plan) => sum + (plan.totalPrice || 0),
+      0
+    );
+
+    return res.status(200).json({
+      success: true,
+      stats,
+      totalAmountTillNow,
+    });
+  } catch (error) {
+    console.error("Error fetching graph stats:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error while fetching graph stats.",
+    });
+  }
+};
+
+export const getUserDetailInAdmin = async (req, res) => {
+  try {
+    const { userId } = req.query;
+
+    // Fetch user
+    const user = await User.findById(userId).select("-otp -otpExpiresAt");
+    if (!user) {
+      return res.status(404).json({ message: "User not found", status: false });
+    }
+
+    // Fetch all plans of the user (latest first)
+    const plans = await Plan.find({ userId })
+      .sort({ createdAt: -1 })
+      .populate("freeOfferings")
+      .populate("businessServices")
+      .populate("institutionalServices")
+      .populate("individualBusinessServices")
+      .lean();
+
+    res.status(200).json({
+      message: "User fetched successfully",
+      status: true,
+      data: {
+        user,
+        plans,
+      },
+    });
+  } catch (error) {
+    console.error("Error in getUserDetailInAdmin:", error);
+    res.status(500).json({ message: "Server Error", status: false });
+  }
+};
+
+export const updateNewsletterStatus = async (req, res) => {
+  try {
+    const { email, status } = req.body;
+
+    if (!email || !["Subscribed", "Unsubscribed"].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Valid email and status ('Subscribed' or 'Unsubscribed') are required",
+      });
+    }
+
+    const subscriber = await NewsletterSubscriber.findOne({ email });
+
+    if (!subscriber) {
+      return res.status(404).json({
+        success: false,
+        message: "Subscriber not found",
+      });
+    }
+
+    subscriber.status = status;
+    await subscriber.save();
+
+    res.status(200).json({
+      success: true,
+      message: `Status updated to ${status}`,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Server error while updating subscription status",
+      error,
+    });
+  }
+};
+
+export const replyToContact = async (req, res) => {
+  try {
+    const { contactId, reply, adminName = "Admin" } = req.body;
+
+    if (!contactId || !reply) {
+      return res.status(400).json({
+        success: false,
+        message: "contactId and reply are required.",
+      });
+    }
+
+    const contact = await Contact.findById(contactId);
+
+    if (!contact) {
+      return res.status(404).json({
+        success: false,
+        message: "Contact entry not found.",
+      });
+    }
+
+    const subject = `Re: Your message to our team`;
+    const html = `
+      <h3>Hi ${contact.firstName},</h3>
+      <p><strong>Your message:</strong><br>${contact.message}</p>
+      <hr />
+      <p><strong>Reply from ${adminName}:</strong><br>${reply}</p>
+      <p>Best regards,<br/>${adminName}</p>
+    `;
+
+    // await sendMail({ to: contact.email, subject, html });
+
+    // Optionally update reply in DB
+    contact.reply = reply;
+    contact.repliedBy = adminName;
+    contact.repliedAt = new Date();
+    contact.replied = "Replied";
+    await contact.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Reply sent successfully.",
+    });
+  } catch (error) {
+    console.error("Error replying to contact:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
+  }
+};
