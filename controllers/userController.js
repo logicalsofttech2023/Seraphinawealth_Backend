@@ -23,6 +23,8 @@ import NewsletterSubscriber from "../models/NewsletterSubscriber.js";
 import ResearchAnalysis from "../models/ResearchAnalysis.js";
 import Contact from "../models/Contact.js";
 import Plan from "../models/Plan.js";
+import Testimonial from "../models/Testimonial.js";
+
 
 const generateJwtToken = (user) => {
   return jwt.sign(
@@ -1890,5 +1892,14 @@ export const getAllContactReplies = async (req, res) => {
       success: false,
       message: "Internal Server Error",
     });
+  }
+};
+
+export const getAllTestimonialsInUser = async (req, res) => {
+  try {
+    const testimonials = await Testimonial.find().sort({ index: 1 });
+    res.status(200).json({ success: true, data: testimonials });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 };

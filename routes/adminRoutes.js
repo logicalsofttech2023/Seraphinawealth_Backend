@@ -90,6 +90,17 @@ import {
   getUserDetailInAdmin,
   updateNewsletterStatus,
   replyToContact,
+  addTestimonial,
+  updateTestimonial,
+  deleteTestimonial,
+  getAllTestimonials,
+  getTestimonialById,
+  updateTestimonialIndex,
+  addUserGraph,
+  getAllUserGraphs,
+  getUserGraphById,
+  updateUserGraph,
+  deleteUserGraph,
 } from "../controllers/adminController.js";
 
 import { authMiddleware } from "../middlewares/authMiddleware.js";
@@ -340,11 +351,33 @@ router.get(
 
 router.post("/verifyUserByAdmin", authMiddleware, verifyUserByAdmin);
 router.get("/getDashboardCount", authMiddleware, getDashboardCount);
-router.get("/getGraphStats",authMiddleware, getGraphStats);
+router.get("/getGraphStats", authMiddleware, getGraphStats);
 router.get("/getUserDetailInAdmin", authMiddleware, getUserDetailInAdmin);
 router.post("/updateNewsletterStatus", authMiddleware, updateNewsletterStatus);
 router.post("/replyToContact", authMiddleware, replyToContact);
 
+router.post(
+  "/addTestimonial",
+  authMiddleware,
+  uploadProfile.fields([{ name: "image", maxCount: 1 }]),
+  addTestimonial
+);
+router.post(
+  "/updateTestimonial",
+  authMiddleware,
+  uploadProfile.fields([{ name: "image", maxCount: 1 }]),
+  updateTestimonial
+);
+router.get("/deleteTestimonial", authMiddleware, deleteTestimonial);
+router.get("/getAllTestimonials", authMiddleware, getAllTestimonials);
+router.get("/getTestimonialById", authMiddleware, getTestimonialById);
+router.post("/updateTestimonialIndex", authMiddleware, updateTestimonialIndex);
+
+router.post("/addUserGraph", authMiddleware, addUserGraph);
+router.post("/updateUserGraph", authMiddleware, updateUserGraph);
+router.get("/getAllUserGraphs", authMiddleware, getAllUserGraphs);
+router.get("/getUserGraphById", authMiddleware, getUserGraphById);
+router.get("/deleteUserGraph", authMiddleware, deleteUserGraph);
 
 
 export default router;

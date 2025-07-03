@@ -22,6 +22,8 @@ import fs from "fs";
 import path from "path";
 import Contact from "../models/Contact.js";
 import Plan from "../models/Plan.js";
+import Testimonial from "../models/Testimonial.js";
+import UserGraph from "../models/UserGraph.js";
 
 const ALLOWED_EXTENSIONS = /\.(pdf|doc|docx|txt)$/i;
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
@@ -2942,5 +2944,423 @@ export const replyToContact = async (req, res) => {
       success: false,
       message: "Internal Server Error",
     });
+  }
+};
+
+export const addTestimonial = async (req, res) => {
+  try {
+    const { name, role, message, index = 0 } = req.body;
+    const image = req.files?.image?.[0]?.filename || "";
+
+    if (!name || !role || !message) {
+      return res
+        .status(400)
+        .json({ success: false, message: "All fields are required" });
+    }
+
+    if (!image) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Image is required" });
+    }
+
+    const newTestimonial = new Testimonial({
+      image,
+      name,
+      role,
+      message,
+      index,
+    });
+    await newTestimonial.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Testimonial added",
+      data: newTestimonial,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const updateTestimonial = async (req, res) => {
+  try {
+    const { id, name, role, message } = req.body;
+
+    if (!id || !name || !role || !message) {
+      return res.status(400).json({
+        success: false,
+        message: "All fields except image are required",
+      });
+    }
+
+    // Build update object conditionally
+    const updateFields = { name, role, message };
+
+    // If new image is uploaded, include it
+    const newImage = req.files?.image?.[0]?.filename;
+    if (newImage) {
+      updateFields.image = newImage;
+    }
+
+    const updated = await Testimonial.findByIdAndUpdate(id, updateFields, {
+      new: true,
+    });
+
+    if (!updated) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Testimonial not found" });
+    }
+
+    res
+      .status(200)
+      .json({ success: true, data: updated, message: "Updated successfully" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const deleteTestimonial = async (req, res) => {
+  try {
+    const { id } = req.query;
+    const deleted = await Testimonial.findByIdAndDelete(id);
+    if (!deleted) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Testimonial not found" });
+    }
+    res.status(200).json({ success: true, message: "Deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getAllTestimonials = async (req, res) => {
+  try {
+    const testimonials = await Testimonial.find().sort({ index: 1 });
+    res.status(200).json({ success: true, data: testimonials });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getTestimonialById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const testimonial = await Testimonial.findById(id);
+    if (!testimonial) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Testimonial not found" });
+    }
+    res.status(200).json({ success: true, data: testimonial });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const updateTestimonialIndex = async (req, res) => {
+  try {
+    const { index, id } = req.body;
+
+    // Validate input
+    if (typeof index !== "number" || index < 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Index must be a non-negative number",
+      });
+    }
+
+    if (!id || typeof id !== "string") {
+      return res.status(400).json({
+        success: false,
+        message: "Valid testimonial ID is required",
+      });
+    }
+
+    // Update the testimonial
+    const updatedTestimonial = await Testimonial.findByIdAndUpdate(
+      id,
+      { $set: { index } },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedTestimonial) {
+      return res.status(404).json({
+        success: false,
+        message: "Testimonial not found",
+      });
+    }
+
+    // Optionally: Reorder other testimonials if needed
+    // This would prevent duplicate indexes if that's a requirement
+    // await Testimonial.updateMany(
+    //   { index: { $gte: index }, _id: { $ne: id } },
+    //   { $inc: { index: 1 } }
+    // );
+
+    res.status(200).json({
+      success: true,
+      message: "Testimonial order updated successfully",
+      data: updatedTestimonial,
+    });
+  } catch (error) {
+    console.error("Error updating testimonial index:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+export const addUserGraph = async (req, res) => {
+  try {
+    let {
+      name,
+      amount,
+      duration,
+      profitPercent,
+      freeOfferings,
+      individualBusinessServices,
+      businessServices,
+      institutionalServices,
+    } = req.body;
+
+    // Validate required fields
+    if (!name || !amount || !duration || !profitPercent) {
+      return res.status(400).json({
+        success: false,
+        message: "All required fields must be filled",
+      });
+    }
+
+    // Ensure amount and profitPercent are numbers
+    amount = Number(amount);
+    profitPercent = Number(profitPercent);
+
+    // Ensure optional fields are arrays, not strings or null
+    const parseToArray = (field) =>
+      Array.isArray(field)
+        ? field
+        : typeof field === "string" && field.trim() !== ""
+        ? JSON.parse(field)
+        : [];
+
+    freeOfferings = parseToArray(freeOfferings);
+    individualBusinessServices = parseToArray(individualBusinessServices);
+    businessServices = parseToArray(businessServices);
+    institutionalServices = parseToArray(institutionalServices);
+
+    const existing = await UserGraph.findOne({ name });
+    if (existing) {
+      return res.status(400).json({
+        success: false,
+        message: "UserGraph with this name already exists",
+      });
+    }
+
+    const userGraph = await UserGraph.create({
+      name,
+      amount,
+      duration,
+      profitPercent,
+      freeOfferings,
+      individualBusinessServices,
+      businessServices,
+      institutionalServices,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "UserGraph added successfully",
+      data: userGraph,
+    });
+  } catch (err) {
+    console.error("Add UserGraph Error:", err);
+    res
+      .status(500)
+      .json({
+        success: false,
+        message: "Internal Server Error",
+        error: err.message,
+      });
+  }
+};
+
+export const getAllUserGraphs = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, search = "" } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const filter = {
+      $or: [{ name: { $regex: search, $options: "i" } }],
+    };
+
+    const data = await UserGraph.find(filter)
+      .populate("freeOfferings")
+      .populate("individualBusinessServices")
+      .populate("businessServices")
+      .populate("institutionalServices")
+      .skip(skip)
+      .limit(parseInt(limit))
+      .sort({ createdAt: -1 });
+
+    const total = await UserGraph.countDocuments(filter);
+
+    res.status(200).json({
+      success: true,
+      total,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      data,
+    });
+  } catch (err) {
+    console.error("Error fetching UserGraphs:", err);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+export const getUserGraphById = async (req, res) => {
+  try {
+    const userGraph = await UserGraph.findById(req.query.id)
+      .populate("freeOfferings")
+      .populate("individualBusinessServices")
+      .populate("businessServices")
+      .populate("institutionalServices");
+
+    if (!userGraph) {
+      return res
+        .status(404)
+        .json({ success: false, message: "UserGraph not found" });
+    }
+
+    res.status(200).json({ success: true, data: userGraph });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+export const updateUserGraph = async (req, res) => {
+  try {
+    let {
+      id,
+      name,
+      amount,
+      duration,
+      profitPercent,
+      freeOfferings,
+      individualBusinessServices,
+      businessServices,
+      institutionalServices,
+    } = req.body;
+
+    if (!id) {
+      return res
+        .status(400)
+        .json({ success: false, message: "ID is required in request body" });
+    }
+
+    // Basic validation
+    if (
+      !name?.trim() ||
+      amount == null ||
+      !duration?.trim() ||
+      profitPercent == null
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "All required fields (name, amount, duration, profitPercent) must be provided",
+      });
+    }
+
+    if (isNaN(amount) || isNaN(profitPercent)) {
+      return res.status(400).json({
+        success: false,
+        message: "Amount and profitPercent must be valid numbers",
+      });
+    }
+
+    // Parse array inputs safely
+    const parseToArray = (field) =>
+      Array.isArray(field)
+        ? field
+        : typeof field === "string" && field.trim() !== ""
+        ? JSON.parse(field)
+        : [];
+
+    freeOfferings = parseToArray(freeOfferings);
+    individualBusinessServices = parseToArray(individualBusinessServices);
+    businessServices = parseToArray(businessServices);
+    institutionalServices = parseToArray(institutionalServices);
+
+    // Check for duplicate name
+    const existing = await UserGraph.findOne({
+      name: name.trim(),
+      _id: { $ne: id },
+    });
+    if (existing) {
+      return res.status(400).json({
+        success: false,
+        message: "UserGraph with this name already exists",
+      });
+    }
+
+    // Update
+    const updated = await UserGraph.findByIdAndUpdate(
+      id,
+      {
+        name: name.trim(),
+        amount,
+        duration: duration.trim(),
+        profitPercent,
+        freeOfferings,
+        individualBusinessServices,
+        businessServices,
+        institutionalServices,
+      },
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
+
+    if (!updated) {
+      return res
+        .status(404)
+        .json({ success: false, message: "UserGraph not found" });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "UserGraph updated successfully",
+      data: updated,
+    });
+  } catch (err) {
+    console.error("Update Error:", err);
+    res
+      .status(500)
+      .json({
+        success: false,
+        message: "Internal server error",
+        error: err.message,
+      });
+  }
+};
+
+export const deleteUserGraph = async (req, res) => {
+  try {
+    const deleted = await UserGraph.findByIdAndDelete(req.query.id);
+    if (!deleted) {
+      return res
+        .status(404)
+        .json({ success: false, message: "UserGraph not found" });
+    }
+
+    res.status(200).json({ success: true, message: "Deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
   }
 };
