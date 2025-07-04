@@ -24,6 +24,8 @@ import Contact from "../models/Contact.js";
 import Plan from "../models/Plan.js";
 import Testimonial from "../models/Testimonial.js";
 import UserGraph from "../models/UserGraph.js";
+import moment from "moment";
+
 
 const ALLOWED_EXTENSIONS = /\.(pdf|doc|docx|txt)$/i;
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
@@ -2985,7 +2987,8 @@ export const addTestimonial = async (req, res) => {
 
 export const updateTestimonial = async (req, res) => {
   try {
-    const { id, name, role, message } = req.body;
+    const { id } = req.query;
+    const { name, role, message } = req.body;
 
     if (!id || !name || !role || !message) {
       return res.status(400).json({
@@ -3117,118 +3120,110 @@ export const updateTestimonialIndex = async (req, res) => {
 
 export const addUserGraph = async (req, res) => {
   try {
-    let {
-      name,
-      amount,
-      duration,
-      profitPercent,
-      freeOfferings,
-      individualBusinessServices,
-      businessServices,
-      institutionalServices,
-    } = req.body;
+    const { amount, profitPercent, serviceChoice, serviceSelected } = req.body;
 
     // Validate required fields
-    if (!name || !amount || !duration || !profitPercent) {
+    if (
+      !serviceChoice ||
+      !serviceSelected ||
+      typeof serviceSelected !== "string"
+    ) {
       return res.status(400).json({
         success: false,
-        message: "All required fields must be filled",
+        message:
+          "serviceChoice and a single serviceSelected (as a string) are required",
       });
     }
 
-    // Ensure amount and profitPercent are numbers
-    amount = Number(amount);
-    profitPercent = Number(profitPercent);
-
-    // Ensure optional fields are arrays, not strings or null
-    const parseToArray = (field) =>
-      Array.isArray(field)
-        ? field
-        : typeof field === "string" && field.trim() !== ""
-        ? JSON.parse(field)
-        : [];
-
-    freeOfferings = parseToArray(freeOfferings);
-    individualBusinessServices = parseToArray(individualBusinessServices);
-    businessServices = parseToArray(businessServices);
-    institutionalServices = parseToArray(institutionalServices);
-
-    const existing = await UserGraph.findOne({ name });
-    if (existing) {
+    // Check if serviceSelected contains multiple values (comma)
+    if (serviceSelected.includes(",")) {
       return res.status(400).json({
         success: false,
-        message: "UserGraph with this name already exists",
+        message: "Only one service can be selected at a time",
       });
     }
 
-    const userGraph = await UserGraph.create({
-      name,
+    // Create and save the entry
+    const newEntry = new UserGraph({
       amount,
-      duration,
+
       profitPercent,
-      freeOfferings,
-      individualBusinessServices,
-      businessServices,
-      institutionalServices,
+      serviceChoice,
+      serviceSelected,
     });
+
+    await newEntry.save();
 
     res.status(201).json({
       success: true,
-      message: "UserGraph added successfully",
-      data: userGraph,
+      message: "UserGraph entry created successfully",
+      data: newEntry,
     });
-  } catch (err) {
-    console.error("Add UserGraph Error:", err);
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Internal Server Error",
-        error: err.message,
-      });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Server error while adding UserGraph",
+      error: error.message,
+    });
   }
 };
 
 export const getAllUserGraphs = async (req, res) => {
   try {
-    const { page = 1, limit = 10, search = "" } = req.query;
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const { page = 1, limit = 10, search = "", serviceChoice } = req.query;
 
-    const filter = {
-      $or: [{ name: { $regex: search, $options: "i" } }],
-    };
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const skip = (pageNum - 1) * limitNum;
 
-    const data = await UserGraph.find(filter)
-      .populate("freeOfferings")
-      .populate("individualBusinessServices")
-      .populate("businessServices")
-      .populate("institutionalServices")
-      .skip(skip)
-      .limit(parseInt(limit))
-      .sort({ createdAt: -1 });
+    // Build dynamic filter
+    const filter = {};
 
-    const total = await UserGraph.countDocuments(filter);
+    if (search) {
+      filter.$or = [
+        { serviceChoice: { $regex: search, $options: "i" } },
+        { serviceSelected: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    if (serviceChoice) {
+      filter.serviceChoice = serviceChoice;
+    }
+
+    const [data, total] = await Promise.all([
+      UserGraph.find(filter).skip(skip).limit(limitNum).sort({ createdAt: -1 }),
+      UserGraph.countDocuments(filter),
+    ]);
 
     res.status(200).json({
       success: true,
+      message: "UserGraph list fetched successfully",
       total,
-      page: parseInt(page),
-      limit: parseInt(limit),
+      page: pageNum,
+      limit: limitNum,
       data,
     });
-  } catch (err) {
-    console.error("Error fetching UserGraphs:", err);
-    res.status(500).json({ success: false, message: "Internal server error" });
+  } catch (error) {
+    console.error("Error in getAllUserGraphs:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
   }
 };
 
 export const getUserGraphById = async (req, res) => {
   try {
-    const userGraph = await UserGraph.findById(req.query.id)
-      .populate("freeOfferings")
-      .populate("individualBusinessServices")
-      .populate("businessServices")
-      .populate("institutionalServices");
+    const { id } = req.query;
+
+    if (!id) {
+      return res
+        .status(400)
+        .json({ success: false, message: "ID parameter is required" });
+    }
+
+    const userGraph = await UserGraph.findById(id);
 
     if (!userGraph) {
       return res
@@ -3236,117 +3231,74 @@ export const getUserGraphById = async (req, res) => {
         .json({ success: false, message: "UserGraph not found" });
     }
 
-    res.status(200).json({ success: true, data: userGraph });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    res.status(200).json({
+      success: true,
+      message: "UserGraph fetched successfully",
+      data: userGraph,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
   }
 };
 
 export const updateUserGraph = async (req, res) => {
   try {
-    let {
-      id,
-      name,
-      amount,
-      duration,
-      profitPercent,
-      freeOfferings,
-      individualBusinessServices,
-      businessServices,
-      institutionalServices,
-    } = req.body;
+    const { amount, profitPercent, serviceChoice, serviceSelected, id } =
+      req.body;
 
-    if (!id) {
-      return res
-        .status(400)
-        .json({ success: false, message: "ID is required in request body" });
-    }
-
-    // Basic validation
     if (
-      !name?.trim() ||
-      amount == null ||
-      !duration?.trim() ||
-      profitPercent == null
+      !amount ||
+      !profitPercent ||
+      !serviceChoice ||
+      !serviceSelected ||
+      typeof serviceSelected !== "string"
     ) {
       return res.status(400).json({
         success: false,
         message:
-          "All required fields (name, amount, duration, profitPercent) must be provided",
+          "serviceChoice and a single serviceSelected (as string) are required",
       });
     }
 
-    if (isNaN(amount) || isNaN(profitPercent)) {
+    if (serviceSelected.includes(",")) {
       return res.status(400).json({
         success: false,
-        message: "Amount and profitPercent must be valid numbers",
+        message: "Only one service can be selected at a time",
       });
     }
-
-    // Parse array inputs safely
-    const parseToArray = (field) =>
-      Array.isArray(field)
-        ? field
-        : typeof field === "string" && field.trim() !== ""
-        ? JSON.parse(field)
-        : [];
-
-    freeOfferings = parseToArray(freeOfferings);
-    individualBusinessServices = parseToArray(individualBusinessServices);
-    businessServices = parseToArray(businessServices);
-    institutionalServices = parseToArray(institutionalServices);
-
-    // Check for duplicate name
-    const existing = await UserGraph.findOne({
-      name: name.trim(),
-      _id: { $ne: id },
-    });
-    if (existing) {
-      return res.status(400).json({
-        success: false,
-        message: "UserGraph with this name already exists",
-      });
-    }
-
-    // Update
-    const updated = await UserGraph.findByIdAndUpdate(
+    const updatedEntry = await UserGraph.findByIdAndUpdate(
       id,
       {
-        name: name.trim(),
         amount,
-        duration: duration.trim(),
         profitPercent,
-        freeOfferings,
-        individualBusinessServices,
-        businessServices,
-        institutionalServices,
+        serviceChoice,
+        serviceSelected,
       },
-      {
-        new: true,
-        runValidators: true,
-      }
+      { new: true }
     );
 
-    if (!updated) {
-      return res
-        .status(404)
-        .json({ success: false, message: "UserGraph not found" });
+    if (!updatedEntry) {
+      return res.status(404).json({
+        success: false,
+        message: "UserGraph entry not found",
+      });
     }
 
     res.status(200).json({
       success: true,
-      message: "UserGraph updated successfully",
-      data: updated,
+      message: "UserGraph entry updated successfully",
+      data: updatedEntry,
     });
-  } catch (err) {
-    console.error("Update Error:", err);
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Internal server error",
-        error: err.message,
-      });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Server error while updating UserGraph",
+      error: error.message,
+    });
   }
 };
 
@@ -3364,3 +3316,135 @@ export const deleteUserGraph = async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 };
+
+
+export const getUserGrowthChart = async (req, res) => {
+  try {
+    const userId = req?.user?.id;
+
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: "userId is required",
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid userId format",
+      });
+    }
+
+    // Step 1: Fetch latest plan
+    const latestPlan = await Plan.findOne({ userId }).sort({ createdAt: -1 });
+    
+    if (!latestPlan) {
+      return res.status(404).json({
+        success: false,
+        message: "No plan found for this user",
+      });
+    }
+
+    const {
+      freeOfferings = [],
+      individualBusinessServices = [],
+      businessServices = [],
+      institutionalServices = [],
+      startDate: planStartDate,
+      endDate: planEndDate,
+    } = latestPlan;
+
+    // Step 2: Determine serviceChoice based on first non-empty array
+    let serviceChoice = null;
+
+    if (freeOfferings.length > 0) serviceChoice = "free";
+    else if (individualBusinessServices.length > 0) serviceChoice = "individual";
+    else if (businessServices.length > 0) serviceChoice = "business";
+    else if (institutionalServices.length > 0) serviceChoice = "institutional";
+
+    if (!serviceChoice) {
+      return res.status(400).json({
+        success: false,
+        message: "No active services found in plan",
+      });
+    }
+
+    // Step 3: Count non-empty arrays (serviceSelected)
+    const serviceArrays = [
+      freeOfferings,
+      individualBusinessServices,
+      businessServices,
+      institutionalServices,
+    ];
+
+    const nonEmptyServiceCount = serviceArrays.filter(
+      (arr) => Array.isArray(arr) && arr.length > 0
+    ).length;
+
+    const serviceSelected = String(nonEmptyServiceCount);
+
+    // Step 4: Find UserGraph data
+    const entry = await UserGraph.findOne({ serviceChoice, serviceSelected }).sort({ createdAt: -1 });
+
+    if (!entry) {
+      return res.status(404).json({
+        success: false,
+        message: `No UserGraph found for serviceChoice: ${serviceChoice}, serviceSelected: ${serviceSelected}`,
+      });
+    }
+
+    const { amount, profitPercent } = entry;
+
+    // Step 5: Prepare chart
+    const durationMapping = {
+      "15D": 0.5,
+      "1M": 1,
+      "1.5M": 1.5,
+      "2M": 2,
+      "2.5M": 2.5,
+      "3M": 3,
+      "3.5M": 3.5,
+      "4M": 4,
+      "4.5M": 4.5,
+      "5M": 5,
+      "5.5M": 5.5,
+      "6M": 6,
+    };
+
+    const chart = [];
+
+    for (const [label, months] of Object.entries(durationMapping)) {
+      const futureDate = moment(planStartDate).add(months, "months");
+
+      // 🛑 Skip if futureDate exceeds endDate
+      if (futureDate.isAfter(moment(planEndDate))) break;
+
+      const gain = (amount * profitPercent * (months / 6)) / 100;
+      const finalAmount = Math.round(amount + gain);
+
+      chart.push({
+        label,
+        date: futureDate.format("YYYY-MM-DD"),
+        amount: finalAmount,
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Growth chart generated successfully",
+      data: chart,
+      serviceChoice,
+      serviceSelected,
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Server error while generating growth chart",
+      error: error.message,
+    });
+  }
+};
+
+

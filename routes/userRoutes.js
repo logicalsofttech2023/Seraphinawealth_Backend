@@ -48,10 +48,12 @@ import {
   renewPlan,
   getResearchByUserPlan,
   getAllTestimonialsInUser,
+  getAllServicesInUser,
 } from "../controllers/userController.js";
 
 import {authMiddleware, optionalAuthMiddleware} from "../middlewares/authMiddleware.js";
 import { uploadProfile } from "../middlewares/uploadMiddleware.js";
+import { getUserGrowthChart } from "../controllers/adminController.js";
 
 const router = express.Router();
 
@@ -160,6 +162,8 @@ router.get("/getPlanByUserId",authMiddleware, getPlanByUserId);
 router.get("/hasUserTakenPlan",optionalAuthMiddleware, hasUserTakenPlan);
 router.get("/getResearchByUserPlan",optionalAuthMiddleware, getResearchByUserPlan);
 router.get("/getAllTestimonialsInUser", getAllTestimonialsInUser);
+router.get("/getAllServicesInUser", getAllServicesInUser);
+router.get("/getUserGrowthChart",optionalAuthMiddleware, getUserGrowthChart);
 
 
 

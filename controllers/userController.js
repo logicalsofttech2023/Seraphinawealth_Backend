@@ -25,7 +25,6 @@ import Contact from "../models/Contact.js";
 import Plan from "../models/Plan.js";
 import Testimonial from "../models/Testimonial.js";
 
-
 const generateJwtToken = (user) => {
   return jwt.sign(
     { id: user._id, phone: user.phone, role: user.role },
@@ -142,7 +141,6 @@ export const generateOtp = async (req, res) => {
 //     res.status(500).json({ message: "Server Error", status: false });
 //   }
 // };
-
 
 export const verifyOtp = async (req, res) => {
   try {
@@ -306,7 +304,8 @@ export const completeRegistration = async (req, res) => {
     // Admin approval check before generating token
     if (user.adminVerified !== "approved") {
       return res.status(403).json({
-        message: "Your profile is submitted successfully and is pending admin approval.",
+        message:
+          "Your profile is submitted successfully and is pending admin approval.",
         status: true, // true because registration is complete
         userExit: true,
         token: "",
@@ -1434,7 +1433,9 @@ export const subscribeNewsletter = async (req, res) => {
 
 export const getAllResearchAnalysis = async (req, res) => {
   try {
-    const data = await ResearchAnalysis.find({serviceChoice: "free"}).sort({ createdAt: -1 });
+    const data = await ResearchAnalysis.find({ serviceChoice: "free" }).sort({
+      createdAt: -1,
+    });
     res
       .status(200)
       .json({ success: true, message: "Fetched successfully", data });
@@ -1827,7 +1828,9 @@ export const getResearchByUserPlan = async (req, res) => {
   const userId = req.user?.id;
 
   try {
-    let plan = await Plan.findOne({ userId, status: "active" }).sort({ createdAt: -1 });
+    let plan = await Plan.findOne({ userId, status: "active" }).sort({
+      createdAt: -1,
+    });
 
     if (!plan) {
       return res.status(404).json({
@@ -1836,7 +1839,6 @@ export const getResearchByUserPlan = async (req, res) => {
       });
     }
     console.log(plan);
-    
 
     // Extract allowed service IDs from plan (if any)
     const individualIds = plan?.individualBusinessServices || [];
@@ -1901,5 +1903,43 @@ export const getAllTestimonialsInUser = async (req, res) => {
     res.status(200).json({ success: true, data: testimonials });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getAllServicesInUser = async (req, res) => {
+  try {
+    const freeOfferings = await FreeOffering.find();
+    const individualBusinessServices = await IndividualBusinessService.find();
+    const businessServices = await BusinessService.find();
+    const institutionalServices = await InstitutionalService.find();
+
+    if (
+      !freeOfferings.length &&
+      !individualBusinessServices.length &&
+      !businessServices.length &&
+      !institutionalServices.length
+    ) {
+      return res.status(404).json({
+        success: false,
+        message: "No services found in any category",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Fetched data successfully",
+      data: {
+        freeOfferings,
+        individualBusinessServices,
+        businessServices,
+        institutionalServices,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: "Error fetching data",
+      error: err.message,
+    });
   }
 };
