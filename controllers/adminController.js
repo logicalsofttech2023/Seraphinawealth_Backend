@@ -3317,7 +3317,6 @@ export const deleteUserGraph = async (req, res) => {
   }
 };
 
-
 export const getUserGrowthChart = async (req, res) => {
   try {
     const userId = req?.user?.id;
@@ -3338,7 +3337,7 @@ export const getUserGrowthChart = async (req, res) => {
 
     // Step 1: Fetch latest plan
     const latestPlan = await Plan.findOne({ userId }).sort({ createdAt: -1 });
-    
+
     if (!latestPlan) {
       return res.status(404).json({
         success: false,
@@ -3370,21 +3369,16 @@ export const getUserGrowthChart = async (req, res) => {
       });
     }
 
-    // Step 3: Count non-empty arrays (serviceSelected)
-    const serviceArrays = [
-      freeOfferings,
-      individualBusinessServices,
-      businessServices,
-      institutionalServices,
-    ];
+    // ✅ Step 3: Total number of selected services (not number of non-empty categories)
+    const totalServicesSelected =
+      freeOfferings.length +
+      individualBusinessServices.length +
+      businessServices.length +
+      institutionalServices.length;
 
-    const nonEmptyServiceCount = serviceArrays.filter(
-      (arr) => Array.isArray(arr) && arr.length > 0
-    ).length;
+    const serviceSelected = String(totalServicesSelected);
 
-    const serviceSelected = String(nonEmptyServiceCount);
-
-    // Step 4: Find UserGraph data
+    // Step 4: Find UserGraph entry
     const entry = await UserGraph.findOne({ serviceChoice, serviceSelected }).sort({ createdAt: -1 });
 
     if (!entry) {
@@ -3396,7 +3390,7 @@ export const getUserGrowthChart = async (req, res) => {
 
     const { amount, profitPercent } = entry;
 
-    // Step 5: Prepare chart
+    // Step 5: Build growth chart
     const durationMapping = {
       "15D": 0.5,
       "1M": 1,
@@ -3417,7 +3411,6 @@ export const getUserGrowthChart = async (req, res) => {
     for (const [label, months] of Object.entries(durationMapping)) {
       const futureDate = moment(planStartDate).add(months, "months");
 
-      // 🛑 Skip if futureDate exceeds endDate
       if (futureDate.isAfter(moment(planEndDate))) break;
 
       const gain = (amount * profitPercent * (months / 6)) / 100;
@@ -3439,7 +3432,7 @@ export const getUserGrowthChart = async (req, res) => {
     });
 
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Server error while generating growth chart",
       error: error.message,
