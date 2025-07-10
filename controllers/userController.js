@@ -1640,6 +1640,20 @@ export const createPlan = async (req, res) => {
       }
     }
 
+    // STEP 4: Expire user's free plan if switching to paid plan
+    if (["individual", "business", "institutional"].includes(serviceChoice)) {
+      await Plan.updateOne(
+        {
+          userId,
+          serviceChoice: "free",
+          status: "active",
+        },
+        {
+          $set: { status: "expired" },
+        }
+      );
+    }
+
     // STEP 3: Create the new plan
     const newPlan = new Plan({
       userId,

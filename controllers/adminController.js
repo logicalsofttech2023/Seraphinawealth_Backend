@@ -25,7 +25,7 @@ import Plan from "../models/Plan.js";
 import Testimonial from "../models/Testimonial.js";
 import UserGraph from "../models/UserGraph.js";
 import moment from "moment";
-
+import Transaction from "../models/TransactionModel.js";
 
 const ALLOWED_EXTENSIONS = /\.(pdf|doc|docx|txt)$/i;
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
@@ -2675,15 +2675,10 @@ export const verifyUserByAdmin = async (req, res) => {
 
 export const getDashboardCount = async (req, res) => {
   try {
-    // Step 1: Get total users
-    const totalUsers = await User.countDocuments();
-
-    // Step 2: Get all plans with required fields
+    // Get all plans with required fields
     const plans = await Plan.find(
       {},
       {
-        userId: 1,
-        freeOfferings: 1,
         individualBusinessServices: 1,
         businessServices: 1,
         institutionalServices: 1,
@@ -2691,30 +2686,16 @@ export const getDashboardCount = async (req, res) => {
       }
     ).lean();
 
-    // Counters
-    let totalFreeOfferings = 0;
-
-    let totalIndividualBusinessServices = 0;
+    // Amount counters
     let individualBusinessServicesAmount = 0;
-
-    let totalBusinessServices = 0;
     let businessServicesAmount = 0;
-
-    let totalInstitutionalServices = 0;
     let institutionalServicesAmount = 0;
 
     for (const plan of plans) {
-      totalFreeOfferings += plan.freeOfferings?.length || 0;
-
       const ibsCount = plan.individualBusinessServices?.length || 0;
       const bsCount = plan.businessServices?.length || 0;
       const insCount = plan.institutionalServices?.length || 0;
 
-      totalIndividualBusinessServices += ibsCount;
-      totalBusinessServices += bsCount;
-      totalInstitutionalServices += insCount;
-
-      // Add amount only if that plan contains those services
       if (ibsCount > 0)
         individualBusinessServicesAmount += plan.totalPrice || 0;
       if (bsCount > 0) businessServicesAmount += plan.totalPrice || 0;
@@ -2724,17 +2705,8 @@ export const getDashboardCount = async (req, res) => {
     return res.status(200).json({
       success: true,
       stats: {
-        totalUsers,
-
-        totalFreeOfferings,
-
-        totalIndividualBusinessServices,
         individualBusinessServicesAmount,
-
-        totalBusinessServices,
         businessServicesAmount,
-
-        totalInstitutionalServices,
         institutionalServicesAmount,
       },
     });
@@ -3358,7 +3330,8 @@ export const getUserGrowthChart = async (req, res) => {
     let serviceChoice = null;
 
     if (freeOfferings.length > 0) serviceChoice = "free";
-    else if (individualBusinessServices.length > 0) serviceChoice = "individual";
+    else if (individualBusinessServices.length > 0)
+      serviceChoice = "individual";
     else if (businessServices.length > 0) serviceChoice = "business";
     else if (institutionalServices.length > 0) serviceChoice = "institutional";
 
@@ -3379,7 +3352,10 @@ export const getUserGrowthChart = async (req, res) => {
     const serviceSelected = String(totalServicesSelected);
 
     // Step 4: Find UserGraph entry
-    const entry = await UserGraph.findOne({ serviceChoice, serviceSelected }).sort({ createdAt: -1 });
+    const entry = await UserGraph.findOne({
+      serviceChoice,
+      serviceSelected,
+    }).sort({ createdAt: -1 });
 
     if (!entry) {
       return res.status(404).json({
@@ -3430,7 +3406,6 @@ export const getUserGrowthChart = async (req, res) => {
       serviceChoice,
       serviceSelected,
     });
-
   } catch (error) {
     return res.status(500).json({
       success: false,
@@ -3440,4 +3415,88 @@ export const getUserGrowthChart = async (req, res) => {
   }
 };
 
+export const getAllTransaction = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, search = "" } = req.query;
 
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+
+    // First, find matching user IDs if search keyword is provided
+    let userFilter = {};
+
+    if (search) {
+      const regex = new RegExp(search, "i");
+      const matchingUsers = await User.find({
+        $or: [{ firstName: regex }, { lastName: regex }],
+      }).select("_id");
+
+      const userIds = matchingUsers.map((user) => user._id);
+      userFilter.userId = { $in: userIds };
+    }
+
+    const totalTransactions = await Transaction.countDocuments(userFilter);
+
+    const transactions = await Transaction.find(userFilter)
+      .populate("userId")
+      .sort({ createdAt: -1 })
+      .skip((pageNum - 1) * limitNum)
+      .limit(limitNum);
+
+    return res.status(200).json({
+      message: "Transaction history fetched successfully",
+      status: true,
+      totalTransactions,
+      currentPage: pageNum,
+      totalPages: Math.ceil(totalTransactions / limitNum),
+      data: transactions,
+    });
+  } catch (error) {
+    console.error("Error fetching transaction history:", error);
+    return res.status(500).json({
+      message: "Server Error",
+      status: false,
+    });
+  }
+};
+
+export const getUsersCounts = async (req, res) => {
+  try {
+    const totalUsers = await User.countDocuments();
+    // Find all free plans
+    const free = await Plan.find({ serviceChoice: "free" }).select("userId");
+
+    const individual = await Plan.find({ serviceChoice: "individual" }).select(
+      "userId"
+    );
+    const business = await Plan.find({ serviceChoice: "business" }).select(
+      "userId"
+    );
+    const institutional = await Plan.find({
+      serviceChoice: "institutional",
+    }).select("userId");
+
+    const freeOfferings = free.map((plan) => plan.userId);
+    const individualBusinessServices = individual.map((plan) => plan.userId);
+    const businessServices = business.map((plan) => plan.userId);
+    const institutionalServices = institutional.map((plan) => plan.userId);
+
+    return res.status(200).json({
+      message: "Users counts fetched successfully",
+      status: true,
+      data: {
+        totalUsers,
+        freeOfferings: freeOfferings.length,
+        individualBusinessServices: individualBusinessServices.length,
+        businessServices: businessServices.length,
+        institutionalServices: institutionalServices.length,
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching users counts:", error);
+    return res.status(500).json({
+      message: "Server Error",
+      status: false,
+    });
+  }
+};

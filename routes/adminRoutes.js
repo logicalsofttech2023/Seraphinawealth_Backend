@@ -101,6 +101,8 @@ import {
   getUserGraphById,
   updateUserGraph,
   deleteUserGraph,
+  getAllTransaction,
+  getUsersCounts,
 } from "../controllers/adminController.js";
 
 import { authMiddleware } from "../middlewares/authMiddleware.js";
@@ -378,6 +380,9 @@ router.post("/updateUserGraph", authMiddleware, updateUserGraph);
 router.get("/getAllUserGraphs", authMiddleware, getAllUserGraphs);
 router.get("/getUserGraphById", authMiddleware, getUserGraphById);
 router.get("/deleteUserGraph", authMiddleware, deleteUserGraph);
+router.get("/getAllTransaction", getAllTransaction);
+router.get("/getUsersCounts", getUsersCounts);
+
 
 
 export default router;
