@@ -49,6 +49,7 @@ import {
   getResearchByUserPlan,
   getAllTestimonialsInUser,
   getAllServicesInUser,
+  getPlanAmountInUser,
 } from "../controllers/userController.js";
 
 import {authMiddleware, optionalAuthMiddleware} from "../middlewares/authMiddleware.js";
@@ -164,7 +165,6 @@ router.get("/getResearchByUserPlan",optionalAuthMiddleware, getResearchByUserPla
 router.get("/getAllTestimonialsInUser", getAllTestimonialsInUser);
 router.get("/getAllServicesInUser", getAllServicesInUser);
 router.get("/getUserGrowthChart",optionalAuthMiddleware, getUserGrowthChart);
-
-
+router.get("/getPlanAmountInUser", getPlanAmountInUser);
 
 export default router;

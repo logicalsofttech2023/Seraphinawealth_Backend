@@ -103,6 +103,9 @@ import {
   deleteUserGraph,
   getAllTransaction,
   getUsersCounts,
+  addUpdatePlanAmount,
+  getPlanAmount,
+  updatePlanAmountStatus,
 } from "../controllers/adminController.js";
 
 import { authMiddleware } from "../middlewares/authMiddleware.js";
@@ -382,7 +385,8 @@ router.get("/getUserGraphById", authMiddleware, getUserGraphById);
 router.get("/deleteUserGraph", authMiddleware, deleteUserGraph);
 router.get("/getAllTransaction", getAllTransaction);
 router.get("/getUsersCounts", getUsersCounts);
-
-
+router.post("/addUpdatePlanAmount", authMiddleware, addUpdatePlanAmount);
+router.post("/updatePlanAmountStatus", authMiddleware, updatePlanAmountStatus);
+router.get("/getPlanAmount", authMiddleware, getPlanAmount);
 
 export default router;

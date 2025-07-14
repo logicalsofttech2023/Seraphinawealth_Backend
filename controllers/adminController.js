@@ -26,6 +26,7 @@ import Testimonial from "../models/Testimonial.js";
 import UserGraph from "../models/UserGraph.js";
 import moment from "moment";
 import Transaction from "../models/TransactionModel.js";
+import PlanAmountModel from "../models/PlanAmountModel.js";
 
 const ALLOWED_EXTENSIONS = /\.(pdf|doc|docx|txt)$/i;
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
@@ -3490,7 +3491,7 @@ export const getUsersCounts = async (req, res) => {
         individualBusinessServices: individualBusinessServices.length,
         businessServices: businessServices.length,
         institutionalServices: institutionalServices.length,
-      }
+      },
     });
   } catch (error) {
     console.error("Error fetching users counts:", error);
@@ -3498,5 +3499,112 @@ export const getUsersCounts = async (req, res) => {
       message: "Server Error",
       status: false,
     });
+  }
+};
+
+export const addUpdatePlanAmount = async (req, res) => {
+  try {
+    const { basePrice, gst, platformFee, selectPercentage, gstStatus, platformFeeStatus } =
+      req.body;
+
+    if (!basePrice || !gst || !platformFee || !selectPercentage) {
+      return res
+        .status(400)
+        .json({ message: "Missing required fields", status: false });
+    }
+
+    // Check if any PlanAmount document exists
+    const existing = await PlanAmountModel.findOne();
+
+    let result;
+    if (existing) {
+      result = await PlanAmountModel.findByIdAndUpdate(
+        existing._id,
+        {
+          basePrice,
+          gst,
+          platformFee,
+          selectPercentage,
+          gstStatus,
+          platformFeeStatus,
+        },
+        { new: true }
+      );
+    } else {
+      result = await PlanAmountModel.create({
+        basePrice,
+        gst,
+        platformFee,
+        selectPercentage,
+        gstStatus,
+        platformFeeStatus,
+      });
+    }
+
+    res
+      .status(200)
+      .json({
+        message: "Plan amount saved successfully",
+        data: result,
+        status: true,
+      });
+  } catch (error) {
+    console.error("Error in addUpdatePlanAmount:", error);
+    res.status(500).json({ message: "Server error", status: false });
+  }
+};
+
+export const updatePlanAmountStatus = async (req, res) => {
+  try {
+    const { gstStatus, platformFeeStatus } = req.body;
+
+    // Fetch existing PlanAmount
+    const existing = await PlanAmountModel.findOne();
+
+    if (!existing) {
+      return res.status(404).json({ message: "Plan amount not found", status: false });
+    }
+
+    // Prepare update object
+    const updateFields = {};
+    if (typeof gstStatus === 'boolean') updateFields.gstStatus = gstStatus;
+    if (typeof platformFeeStatus === 'boolean') updateFields.platformFeeStatus = platformFeeStatus;
+
+    if (Object.keys(updateFields).length === 0) {
+      return res.status(400).json({ message: "No valid status fields provided", status: false });
+    }
+
+    // Update status fields
+    const updated = await PlanAmountModel.findByIdAndUpdate(
+      existing._id,
+      { $set: updateFields },
+      { new: true }
+    );
+
+    res.status(200).json({
+      message: "Plan status updated successfully",
+      data: updated,
+      status: true,
+    });
+  } catch (error) {
+    console.error("Error in updatePlanAmountStatus:", error);
+    res.status(500).json({ message: "Server error", status: false });
+  }
+};
+
+export const getPlanAmount = async (req, res) => {
+  try {
+    const planAmount = await PlanAmountModel.findOne();
+    if (!planAmount) {
+      return res.status(404).json({ message: "Plan amount not found", status: false });
+    }
+    res.status(200).json({
+      message: "Plan amount fetched successfully",
+      data: planAmount,
+      status: true,
+    });
+  } catch (error) {
+    console.error("Error in getPlanAmount:", error);
+    res.status(500).json({ message: "Server error", status: false });
   }
 };

@@ -24,6 +24,7 @@ import ResearchAnalysis from "../models/ResearchAnalysis.js";
 import Contact from "../models/Contact.js";
 import Plan from "../models/Plan.js";
 import Testimonial from "../models/Testimonial.js";
+import PlanAmountModel from "../models/PlanAmountModel.js";
 
 const generateJwtToken = (user) => {
   return jwt.sign(
@@ -81,66 +82,6 @@ export const generateOtp = async (req, res) => {
     res.status(500).json({ message: "Server Error", status: false });
   }
 };
-
-// export const verifyOtp = async (req, res) => {
-//   try {
-//     const { phone, otp, firebaseToken } = req.body;
-
-//     if (!phone || !otp) {
-//       return res.status(400).json({
-//         message: "phone, and otp are required",
-//         status: false,
-//       });
-//     }
-
-//     let user = await User.findOne({ phone });
-
-//     if (!user || user.otp !== otp) {
-//       return res.status(400).json({ message: "Invalid OTP", status: false });
-//     }
-
-//     if (new Date() > new Date(user.otpExpiresAt)) {
-//       return res.status(400).json({ message: "OTP expired", status: false });
-//     }
-
-//     user.otpExpiresAt = "";
-//     user.isVerified = true;
-//     user.firebaseToken = firebaseToken;
-//     await user.save();
-
-//     let token = "";
-//     let userExit = false;
-//     if (user.firstName) {
-//       token = generateJwtToken(user);
-//       userExit = true;
-//     }
-
-//     const formattedUser = {
-//       _id: user._id,
-//       userEmail: user.userEmail || "",
-//       phone: user.phone || "",
-//       profileImage: user.profileImage || "",
-//       otp: user.otp || "",
-//       otpExpiresAt: user.otpExpiresAt || "",
-//       isVerified: user.isVerified,
-//       role: user.role || "user",
-//       firebaseToken: firebaseToken || "",
-//       name: user.name || "",
-//       createdAt: user.createdAt,
-//       updatedAt: user.updatedAt,
-//     };
-
-//     res.status(200).json({
-//       message: "OTP verified successfully",
-//       status: true,
-//       token,
-//       userExit,
-//       data: formattedUser,
-//     });
-//   } catch (error) {
-//     res.status(500).json({ message: "Server Error", status: false });
-//   }
-// };
 
 export const verifyOtp = async (req, res) => {
   try {
@@ -1558,128 +1499,354 @@ export const getAllFAQsInUser = async (req, res) => {
   }
 };
 
+// export const createPlan = async (req, res) => {
+//   const userId = req.user.id;
+
+//   try {
+//     const {
+//       deliveryPreference,
+//       serviceChoice,
+//       startDate,
+//       endDate,
+//       freeOfferings = [],
+//       individualBusinessServices = [],
+//       businessServices = [],
+//       institutionalServices = [],
+//       totalPrice = 0,
+//     } = req.body;
+
+//     // Basic validation
+//     if (!deliveryPreference || !serviceChoice || !startDate || !endDate) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Required fields are missing.",
+//       });
+//     }
+
+//     const now = new Date();
+
+//     // STEP 1: Check if user already has an active paid plan (not expired)
+//     const activePaidPlan = await Plan.findOne({
+//       userId,
+//       serviceChoice: { $in: ["individual", "business", "institutional"] },
+//       status: "active",
+//     });
+
+//     if (activePaidPlan) {
+//       return res.status(400).json({
+//         success: false,
+//         message:
+//           "You already have an active paid plan. Please wait until it expires.",
+//       });
+//     }
+
+//     // STEP 2: If trying to take a free plan
+//     if (serviceChoice === "free") {
+//       const existingFreePlan = await Plan.findOne({
+//         userId,
+//         serviceChoice: "free",
+//       });
+
+//       // Check if free plan already taken before
+//       if (existingFreePlan) {
+//         return res.status(400).json({
+//           success: false,
+//           message:
+//             "You have already taken the free plan. It cannot be taken again.",
+//         });
+//       }
+//     }
+
+//     // Deduct wallet for paid plans
+//     if (totalPrice > 0) {
+//       const transactionId = generateTransactionId();
+//       const transaction = new Transaction({
+//         userId,
+//         amount: totalPrice,
+//         type: "planPurchase",
+//         status: "success",
+//         transactionId,
+//         description: `Payment received for ${serviceChoice} plan activation`,
+//       });
+//       await transaction.save();
+
+//       const title = "Plan Purchased";
+//       const body = `Your ${serviceChoice} plan has been successfully activated. Payment of ₹${totalPrice} was completed.`;
+
+//       try {
+//         await addNotification(userId, title, body);
+//         // if (user.firebaseToken) await sendNotification(user.firebaseToken, title, body);
+//       } catch (notificationError) {
+//         console.error("Notification Error:", notificationError);
+//       }
+//     }
+
+//     // STEP 4: Expire user's free plan if switching to paid plan
+//     if (["individual", "business", "institutional"].includes(serviceChoice)) {
+//       await Plan.updateOne(
+//         {
+//           userId,
+//           serviceChoice: "free",
+//           status: "active",
+//         },
+//         {
+//           $set: { status: "expired" },
+//         }
+//       );
+//     }
+
+//     // STEP 3: Create the new plan
+//     const newPlan = new Plan({
+//       userId,
+//       deliveryPreference,
+//       serviceChoice,
+//       startDate,
+//       endDate,
+//       freeOfferings,
+//       individualBusinessServices,
+//       businessServices,
+//       institutionalServices,
+//       totalPrice,
+//     });
+
+//     const savedPlan = await newPlan.save();
+
+//     return res.status(200).json({
+//       success: true,
+//       message: "Plan created successfully.",
+//       plan: savedPlan,
+//     });
+//   } catch (error) {
+//     console.error("Error creating plan:", error);
+//     res.status(500).json({
+//       success: false,
+//       message: "Server error while creating plan.",
+//     });
+//   }
+// };
+
+
 export const createPlan = async (req, res) => {
   const userId = req.user.id;
+  console.log("🔐 User ID:", userId);
 
   try {
-    const {
-      deliveryPreference,
-      serviceChoice,
-      startDate,
-      endDate,
-      freeOfferings = [],
-      individualBusinessServices = [],
-      businessServices = [],
-      institutionalServices = [],
-      totalPrice = 0,
-    } = req.body;
+    const { plans = [] } = req.body;
+    console.log("📥 Received plans:", JSON.stringify(plans, null, 2));
 
-    // Basic validation
-    if (!deliveryPreference || !serviceChoice || !startDate || !endDate) {
+    if (!Array.isArray(plans) || plans.length === 0) {
       return res.status(400).json({
         success: false,
-        message: "Required fields are missing.",
+        message: "No plans provided.",
       });
     }
 
-    const now = new Date();
+    const createdPlans = [];
 
-    // STEP 1: Check if user already has an active paid plan (not expired)
-    const activePaidPlan = await Plan.findOne({
-      userId,
-      serviceChoice: { $in: ["individual", "business", "institutional"] },
-      status: "active",
-    });
+    for (let i = 0; i < plans.length; i++) {
+      const planData = plans[i];
+      console.log(`🚀 Processing Plan #${i + 1}:`, planData);
 
-    if (activePaidPlan) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "You already have an active paid plan. Please wait until it expires.",
-      });
-    }
+      const {
+        deliveryPreference,
+        serviceChoice,
+        startDate,
+        endDate,
+        freeOfferings = [],
+        individualBusinessServices = [],
+        businessServices = [],
+        institutionalServices = [],
+        totalPrice = 0,
+      } = planData;
 
-    // STEP 2: If trying to take a free plan
-    if (serviceChoice === "free") {
-      const existingFreePlan = await Plan.findOne({
-        userId,
-        serviceChoice: "free",
-      });
-
-      // Check if free plan already taken before
-      if (existingFreePlan) {
+      if (!deliveryPreference || !serviceChoice || !startDate || !endDate) {
+        console.log("❌ Missing required fields in plan:", planData);
         return res.status(400).json({
           success: false,
-          message:
-            "You have already taken the free plan. It cannot be taken again.",
+          message: `Required fields are missing in Plan #${i + 1}.`,
         });
       }
-    }
 
-    // Deduct wallet for paid plans
-    if (totalPrice > 0) {
-      const transactionId = generateTransactionId();
-      const transaction = new Transaction({
-        userId,
-        amount: totalPrice,
-        type: "planPurchase",
-        status: "success",
-        transactionId,
-        description: `Payment received for ${serviceChoice} plan activation`,
-      });
-      await transaction.save();
-
-      const title = "Plan Purchased";
-      const body = `Your ${serviceChoice} plan has been successfully activated. Payment of ₹${totalPrice} was completed.`;
-
-      try {
-        await addNotification(userId, title, body);
-        // if (user.firebaseToken) await sendNotification(user.firebaseToken, title, body);
-      } catch (notificationError) {
-        console.error("Notification Error:", notificationError);
-      }
-    }
-
-    // STEP 4: Expire user's free plan if switching to paid plan
-    if (["individual", "business", "institutional"].includes(serviceChoice)) {
-      await Plan.updateOne(
-        {
+      // ❌ Free plan allowed only once
+      if (serviceChoice === "free") {
+        const existingFreePlan = await Plan.findOne({
           userId,
           serviceChoice: "free",
-          status: "active",
-        },
-        {
-          $set: { status: "expired" },
+        });
+        if (existingFreePlan) {
+          return res.status(400).json({
+            success: false,
+            message: "Free plan already taken. It cannot be taken again.",
+          });
         }
+      }
+
+      // ✅ Check duplicate service within same plan type
+      let selectedServiceIds = [];
+      if (serviceChoice === "individual") {
+        selectedServiceIds = individualBusinessServices;
+      } else if (serviceChoice === "business") {
+        selectedServiceIds = businessServices;
+      } else if (serviceChoice === "institutional") {
+        selectedServiceIds = institutionalServices;
+      }
+
+      // 🔁 Check for same service in already active same-type plan
+      const existingPlans = await Plan.find({
+        userId,
+        serviceChoice,
+        status: "active",
+      });
+
+      const alreadyTakenServices = new Set();
+      for (const plan of existingPlans) {
+        const existingIds = [
+          ...(plan.individualBusinessServices || []),
+          ...(plan.businessServices || []),
+          ...(plan.institutionalServices || []),
+        ];
+        existingIds.forEach((id) => alreadyTakenServices.add(id.toString()));
+      }
+
+      const duplicateServices = selectedServiceIds.filter((id) =>
+        alreadyTakenServices.has(id.toString())
       );
+
+      if (duplicateServices.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: `You already have one or more of the selected services in an active ${serviceChoice} plan.`,
+          duplicateServices,
+        });
+      }
+
+      // 💰 Save transaction if paid
+      if (totalPrice > 0) {
+        const transactionId = generateTransactionId();
+        const transaction = new Transaction({
+          userId,
+          amount: totalPrice,
+          type: "planPurchase",
+          status: "success",
+          transactionId,
+          description: `Payment received for ${serviceChoice} plan activation`,
+        });
+
+        await transaction.save();
+        console.log("✅ Transaction saved:", transactionId);
+
+        const title = "Plan Purchased";
+        const body = `Your ${serviceChoice} plan has been successfully activated. Payment of ₹${totalPrice} was completed.`;
+        await addNotification(userId, title, body);
+      }
+
+      // 🔄 Expire any active free plan when buying paid one
+      if (["individual", "business", "institutional"].includes(serviceChoice)) {
+        const expiredResult = await Plan.updateOne(
+          { userId, serviceChoice: "free", status: "active" },
+          { $set: { status: "expired" } }
+        );
+        if (expiredResult.modifiedCount > 0) {
+          console.log("🔄 Expired previous free plan (if any).");
+        }
+      }
+
+      // 💾 Save new plan
+      const newPlan = new Plan({
+        userId,
+        deliveryPreference,
+        serviceChoice,
+        startDate,
+        endDate,
+        freeOfferings,
+        individualBusinessServices,
+        businessServices,
+        institutionalServices,
+        totalPrice,
+        status: "active",
+      });
+
+      const savedPlan = await newPlan.save();
+      console.log(`✅ Plan #${i + 1} saved:`, savedPlan._id.toString());
+      createdPlans.push(savedPlan);
     }
-
-    // STEP 3: Create the new plan
-    const newPlan = new Plan({
-      userId,
-      deliveryPreference,
-      serviceChoice,
-      startDate,
-      endDate,
-      freeOfferings,
-      individualBusinessServices,
-      businessServices,
-      institutionalServices,
-      totalPrice,
-    });
-
-    const savedPlan = await newPlan.save();
 
     return res.status(200).json({
       success: true,
-      message: "Plan created successfully.",
-      plan: savedPlan,
+      message: "Plans created successfully.",
+      plans: createdPlans,
     });
   } catch (error) {
-    console.error("Error creating plan:", error);
+    console.error("🔥 Error in createPlan:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error while creating plans.",
+    });
+  }
+};
+
+
+
+export const upgradePlan = async (req, res) => {
+  const userId = req.user.id;
+  const { planId } = req.query;
+
+  try {
+    const { newServices = {}, additionalPrice = 0 } = req.body;
+
+    const plan = await Plan.findOne({ _id: planId, userId });
+
+    if (!plan || plan.status !== "active") {
+      return res.status(404).json({
+        success: false,
+        message: "Active plan not found for upgrade.",
+      });
+    }
+
+    // Append new services if not already included
+    for (const key of [
+      "freeOfferings",
+      "individualBusinessServices",
+      "businessServices",
+      "institutionalServices",
+    ]) {
+      if (Array.isArray(newServices[key])) {
+        const current = plan[key] || [];
+        const toAdd = newServices[key].filter((id) => !current.includes(id));
+        plan[key] = [...current, ...toAdd];
+      }
+    }
+
+    // Add transaction if price > 0
+    if (additionalPrice > 0) {
+      const transactionId = generateTransactionId();
+      await new Transaction({
+        userId,
+        amount: additionalPrice,
+        type: "planUpgrade",
+        status: "success",
+        transactionId,
+        description: `Upgrade of plan ${plan.serviceChoice} for ₹${additionalPrice}`,
+      }).save();
+
+      const title = "Plan Upgraded";
+      const body = `Your ${plan.serviceChoice} plan has been upgraded. Payment of ₹${additionalPrice} was completed.`;
+      await addNotification(userId, title, body);
+    }
+
+    plan.totalPrice += additionalPrice;
+    await plan.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Plan upgraded successfully.",
+      plan,
+    });
+  } catch (error) {
+    console.error("Plan upgrade error:", error);
     res.status(500).json({
       success: false,
-      message: "Server error while creating plan.",
+      message: "Server error while upgrading plan.",
     });
   }
 };
@@ -1808,35 +1975,35 @@ export const hasUserTakenPlan = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    const existingPlan = await Plan.findOne({ userId })
+    // Find all plans for user
+    const allPlans = await Plan.find({ userId })
       .sort({ createdAt: -1 })
       .populate("freeOfferings")
       .populate("individualBusinessServices")
       .populate("businessServices")
       .populate("institutionalServices");
 
-    if (existingPlan) {
-      return res.status(200).json({
-        success: true,
-        hasPlan: true,
-        plan: existingPlan,
-        message: "User has already taken a plan.",
-      });
-    } else {
-      return res.status(200).json({
-        success: true,
-        hasPlan: false,
-        message: "User has not taken any plan.",
-      });
-    }
+    // Filter active plans based on "status" field
+    const activePlans = allPlans.filter(plan => plan.status === "active");
+
+    return res.status(200).json({
+      success: true,
+      hasPlan: allPlans.length > 0 ? true : false,
+      plans: allPlans,
+      activePlans,
+      message: allPlans.length > 0
+        ? "User plans fetched successfully."
+        : "No plans found for this user.",
+    });
   } catch (error) {
-    console.error("Error checking user plan:", error);
-    res.status(500).json({
+    console.error("🔥 Error checking user plans:", error);
+    return res.status(500).json({
       success: false,
-      message: "Server error while checking plan status.",
+      message: "Server error while fetching user plans.",
     });
   }
 };
+
 
 export const getResearchByUserPlan = async (req, res) => {
   const userId = req.user?.id;
@@ -1955,5 +2122,24 @@ export const getAllServicesInUser = async (req, res) => {
       message: "Error fetching data",
       error: err.message,
     });
+  }
+};
+
+export const getPlanAmountInUser = async (req, res) => {
+  try {
+    const planAmount = await PlanAmountModel.findOne();
+    if (!planAmount) {
+      return res
+        .status(404)
+        .json({ message: "Plan amount not found", status: false });
+    }
+    res.status(200).json({
+      message: "Plan amount fetched successfully",
+      data: planAmount,
+      status: true,
+    });
+  } catch (error) {
+    console.error("Error in getPlanAmount:", error);
+    res.status(500).json({ message: "Server error", status: false });
   }
 };
