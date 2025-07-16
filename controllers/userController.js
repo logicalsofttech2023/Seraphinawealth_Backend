@@ -1625,7 +1625,6 @@ export const getAllFAQsInUser = async (req, res) => {
 //   }
 // };
 
-
 export const createPlan = async (req, res) => {
   const userId = req.user.id;
   console.log("🔐 User ID:", userId);
@@ -1785,8 +1784,6 @@ export const createPlan = async (req, res) => {
   }
 };
 
-
-
 export const upgradePlan = async (req, res) => {
   const userId = req.user.id;
   const { planId } = req.query;
@@ -1854,6 +1851,7 @@ export const upgradePlan = async (req, res) => {
 export const renewPlan = async (req, res) => {
   try {
     const userId = req.user?.id;
+    const { planId } = req.body;
 
     if (!userId) {
       return res.status(401).json({
@@ -1862,18 +1860,22 @@ export const renewPlan = async (req, res) => {
       });
     }
 
-    // Get the latest active plan
-    const existingPlan = await Plan.findOne({ userId }).sort({ createdAt: -1 });
-    console.log("existingPlan", existingPlan);
+    if (!planId) {
+      return res.status(400).json({
+        success: false,
+        message: "Plan ID is required for renewal.",
+      });
+    }
+
+    const existingPlan = await Plan.findOne({ _id: planId, userId });
 
     if (!existingPlan) {
       return res.status(404).json({
         success: false,
-        message: "No active plan found to renew.",
+        message: "No such plan found to renew.",
       });
     }
 
-    // ❌ Block renewal of free plans
     if (existingPlan.serviceChoice === "free") {
       return res.status(400).json({
         success: false,
@@ -1893,18 +1895,18 @@ export const renewPlan = async (req, res) => {
     });
     await transaction.save();
 
-    // 🔔 Notification
+    // 🔔 Send notification
     const title = "Plan Renewed";
     const body = `Your ${existingPlan.serviceChoice} plan has been renewed successfully. Payment of ₹${existingPlan.totalPrice} was completed.`;
 
     try {
       await addNotification(userId, title, body);
-      // if (user.firebaseToken) await sendNotification(user.firebaseToken, title, body);
+      // await sendNotification(user.firebaseToken, title, body); // optional
     } catch (notificationError) {
       console.error("Notification Error:", notificationError);
     }
 
-    // ✅ Proceed with renewing paid plan
+    // 📅 Renew duration
     const newStartDate = new Date(existingPlan.endDate);
     const newEndDate = new Date(newStartDate);
     newEndDate.setMonth(newEndDate.getMonth() + 6);
@@ -1927,7 +1929,7 @@ export const renewPlan = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Paid plan renewed successfully.",
+      message: "Plan renewed successfully.",
       plan: savedRenewedPlan,
     });
   } catch (error) {
@@ -1943,24 +1945,68 @@ export const getPlanByUserId = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    const plan = await Plan.findOne({ userId })
+    const allPlans = await Plan.find({ userId, status: "active" }) // Only active plans
       .sort({ createdAt: -1 })
       .populate("freeOfferings")
       .populate("individualBusinessServices")
       .populate("businessServices")
       .populate("institutionalServices");
 
-    if (!plan) {
+    if (!allPlans || allPlans.length === 0) {
       return res.status(404).json({
         success: false,
         message: "No plan found for this user.",
       });
     }
 
+    // Separate paid and free plans
+    const paidPlans = allPlans.filter(
+      (plan) => plan.serviceChoice !== "free"
+    );
+    const freePlans = allPlans.filter(
+      (plan) => plan.serviceChoice === "free"
+    );
+
+    let selectedPlans = [];
+
+    if (paidPlans.length > 0) {
+      // If paid plans exist, exclude free plan
+      const uniqueServiceIds = new Set();
+
+      for (const plan of paidPlans) {
+        const hasNewService =
+          plan.individualBusinessServices?.some(
+            (s) => !uniqueServiceIds.has(s._id.toString())
+          ) ||
+          plan.businessServices?.some(
+            (s) => !uniqueServiceIds.has(s._id.toString())
+          ) ||
+          plan.institutionalServices?.some(
+            (s) => !uniqueServiceIds.has(s._id.toString())
+          );
+
+        if (hasNewService) {
+          plan.individualBusinessServices?.forEach((s) =>
+            uniqueServiceIds.add(s._id.toString())
+          );
+          plan.businessServices?.forEach((s) =>
+            uniqueServiceIds.add(s._id.toString())
+          );
+          plan.institutionalServices?.forEach((s) =>
+            uniqueServiceIds.add(s._id.toString())
+          );
+          selectedPlans.push(plan);
+        }
+      }
+    } else if (freePlans.length > 0) {
+      // No paid plans, return free plan
+      selectedPlans = freePlans;
+    }
+
     res.status(200).json({
       success: true,
       message: "Plan fetched successfully.",
-      plan,
+      plans: selectedPlans,
     });
   } catch (error) {
     console.error("Error fetching plan by userId:", error);
@@ -1970,6 +2016,9 @@ export const getPlanByUserId = async (req, res) => {
     });
   }
 };
+
+
+
 
 export const hasUserTakenPlan = async (req, res) => {
   try {
@@ -1984,16 +2033,17 @@ export const hasUserTakenPlan = async (req, res) => {
       .populate("institutionalServices");
 
     // Filter active plans based on "status" field
-    const activePlans = allPlans.filter(plan => plan.status === "active");
+    const activePlans = allPlans.filter((plan) => plan.status === "active");
 
     return res.status(200).json({
       success: true,
       hasPlan: allPlans.length > 0 ? true : false,
       plans: allPlans,
       activePlans,
-      message: allPlans.length > 0
-        ? "User plans fetched successfully."
-        : "No plans found for this user.",
+      message:
+        allPlans.length > 0
+          ? "User plans fetched successfully."
+          : "No plans found for this user.",
     });
   } catch (error) {
     console.error("🔥 Error checking user plans:", error);
@@ -2004,45 +2054,58 @@ export const hasUserTakenPlan = async (req, res) => {
   }
 };
 
-
 export const getResearchByUserPlan = async (req, res) => {
   const userId = req.user?.id;
 
   try {
-    let plan = await Plan.findOne({ userId, status: "active" }).sort({
-      createdAt: -1,
-    });
+    // Find active plans
+    const activePlans = await Plan.find({ userId, status: "active" });
 
-    if (!plan) {
-      return res.status(404).json({
-        success: false,
-        message: "No active plan found for this user.",
-      });
-    }
-    console.log(plan);
-
-    // Extract allowed service IDs from plan (if any)
-    const individualIds = plan?.individualBusinessServices || [];
-    const businessIds = plan?.businessServices || [];
-    const institutionalIds = plan?.institutionalServices || [];
-
-    // Always include free offerings (visible to everyone)
+    // Always get free offering documents
     const freeDocsPromise = ResearchAnalysis.find({
       freeOfferings: { $exists: true, $ne: [] },
     });
 
-    // Conditionally include restricted services only if user has them in plan
-    const conditionalDocsPromise = ResearchAnalysis.find({
-      $or: [
-        { individualBusinessServices: { $in: individualIds } },
-        { businessServices: { $in: businessIds } },
-        { institutionalServices: { $in: institutionalIds } },
-      ],
-    });
+    let conditionalDocsPromise = Promise.resolve([]); // Default empty if no active plans
 
+    if (activePlans && activePlans.length > 0) {
+      // Initialize sets to collect unique IDs
+      const individualIds = new Set();
+      const businessIds = new Set();
+      const institutionalIds = new Set();
+
+      // Collect all service IDs from active plans
+      for (const plan of activePlans) {
+        (plan.individualBusinessServices || []).forEach((id) =>
+          individualIds.add(id.toString())
+        );
+        (plan.businessServices || []).forEach((id) =>
+          businessIds.add(id.toString())
+        );
+        (plan.institutionalServices || []).forEach((id) =>
+          institutionalIds.add(id.toString())
+        );
+      }
+
+      // Convert Sets to Arrays
+      const individualArray = [...individualIds];
+      const businessArray = [...businessIds];
+      const institutionalArray = [...institutionalIds];
+
+      // Fetch paid content based on user's active plan services
+      conditionalDocsPromise = ResearchAnalysis.find({
+        $or: [
+          { individualBusinessServices: { $in: individualArray } },
+          { businessServices: { $in: businessArray } },
+          { institutionalServices: { $in: institutionalArray } },
+        ],
+      });
+    }
+
+    // Execute all promises
     const [freeDocs, conditionalDocs] = await Promise.all([
       freeDocsPromise,
-      plan ? conditionalDocsPromise : [],
+      conditionalDocsPromise,
     ]);
 
     const allDocs = [...freeDocs, ...conditionalDocs];
@@ -2052,13 +2115,14 @@ export const getResearchByUserPlan = async (req, res) => {
       data: allDocs,
     });
   } catch (error) {
-    console.error("Error fetching research by plan:", error);
+    console.error("Error fetching research by user plans:", error);
     return res.status(500).json({
       success: false,
       message: "Internal server error",
     });
   }
 };
+
 
 export const getAllContactReplies = async (req, res) => {
   try {

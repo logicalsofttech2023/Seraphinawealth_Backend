@@ -106,6 +106,25 @@ import {
   addUpdatePlanAmount,
   getPlanAmount,
   updatePlanAmountStatus,
+  getBanner,
+  addOrUpdateBanner,
+  deleteBanner,
+  addWhyChooseUs,
+  updateWhyChooseUs,
+  getWhyChooseUsById,
+  getAllWhyChooseUs,
+  deleteWhyChooseUs,
+  addHowItWorks,
+  updateHowItWorks,
+  getHowItWorksById,
+  deleteHowItWorks,
+  getAllHowItWorks,
+  addOrUpdateNewsletter,
+  getNewsletter,
+  addOrUpdateOurObjectives,
+  getAllOurObjectives,
+  addOrUpdateContactUs,
+  getContactUs,
 } from "../controllers/adminController.js";
 
 import { authMiddleware } from "../middlewares/authMiddleware.js";
@@ -388,5 +407,33 @@ router.get("/getUsersCounts", getUsersCounts);
 router.post("/addUpdatePlanAmount", authMiddleware, addUpdatePlanAmount);
 router.post("/updatePlanAmountStatus", authMiddleware, updatePlanAmountStatus);
 router.get("/getPlanAmount", authMiddleware, getPlanAmount);
+
+router.get("/getBanner", authMiddleware, getBanner);
+router.post("/addOrUpdateBanner", uploadProfile.fields([{ name: "image", maxCount: 1 }]), authMiddleware, addOrUpdateBanner);
+router.delete("/deleteBanner", authMiddleware, deleteBanner);
+
+router.post("/addWhyChooseUs", authMiddleware, addWhyChooseUs);
+router.post("/updateWhyChooseUs", authMiddleware, updateWhyChooseUs);
+router.get("/getWhyChooseUsById", authMiddleware, getWhyChooseUsById);
+router.get("/deleteWhyChooseUs", authMiddleware, deleteWhyChooseUs);
+router.get("/getAllWhyChooseUs", authMiddleware, getAllWhyChooseUs);
+
+router.post("/addHowItWorks", uploadProfile.fields([{ name: "image", maxCount: 1 }]), authMiddleware, addHowItWorks);
+router.post("/updateHowItWorks", uploadProfile.fields([{ name: "image", maxCount: 1 }]), authMiddleware, updateHowItWorks);
+router.get("/getHowItWorksById", authMiddleware, getHowItWorksById);
+router.get("/deleteHowItWorks", authMiddleware, deleteHowItWorks);
+router.get("/getAllHowItWorks", authMiddleware, getAllHowItWorks);
+
+router.post("/addOrUpdateNewsletter", uploadProfile.fields([{ name: "image", maxCount: 1 }]), authMiddleware,  addOrUpdateNewsletter);
+router.get("/getNewsletter", authMiddleware, getNewsletter);
+
+
+router.post("/addOrUpdateOurObjectives", authMiddleware,  addOrUpdateOurObjectives);
+router.get("/getOurObjectives", authMiddleware, getAllOurObjectives);
+
+
+router.post("/addOrUpdateContactUs", authMiddleware,  addOrUpdateContactUs);
+router.get("/getContactUs", authMiddleware, getContactUs);
+
 
 export default router;

@@ -52,9 +52,20 @@ import {
   getPlanAmountInUser,
 } from "../controllers/userController.js";
 
-import {authMiddleware, optionalAuthMiddleware} from "../middlewares/authMiddleware.js";
+import {
+  authMiddleware,
+  optionalAuthMiddleware,
+} from "../middlewares/authMiddleware.js";
 import { uploadProfile } from "../middlewares/uploadMiddleware.js";
-import { getUserGrowthChart } from "../controllers/adminController.js";
+import {
+  getAllHowItWorks,
+  getAllOurObjectives,
+  getAllWhyChooseUs,
+  getBanner,
+  getContactUs,
+  getNewsletter,
+  getUserGrowthChart,
+} from "../controllers/adminController.js";
 
 const router = express.Router();
 
@@ -120,14 +131,46 @@ router.get("/getBankNameById", getBankNameById);
 /* ----------------------------------
    📈 Investment Plans & Purchases
 ---------------------------------- */
-router.post("/createInvestmentPurchase", authMiddleware, createInvestmentPurchase);
-router.get("/getAllInvestmentPlansInWeb", optionalAuthMiddleware, getAllInvestmentPlansInWeb);
-router.get("/getAllInvestmentPlansInApp", optionalAuthMiddleware, getAllInvestmentPlansInApp);
-router.get("/getInvestmentPlanById", optionalAuthMiddleware, getInvestmentPlanById);
-router.get("/getInvestmentPurchasesInWeb", optionalAuthMiddleware, getInvestmentPurchasesInWeb);
-router.get("/getInvestmentPurchasesInApp", optionalAuthMiddleware, getInvestmentPurchasesInApp);
-router.get("/getInvestmentPerformance", authMiddleware, getInvestmentPerformance);
-router.get("/getInvestmentPerformanceChart", authMiddleware, getInvestmentPerformanceChart);
+router.post(
+  "/createInvestmentPurchase",
+  authMiddleware,
+  createInvestmentPurchase
+);
+router.get(
+  "/getAllInvestmentPlansInWeb",
+  optionalAuthMiddleware,
+  getAllInvestmentPlansInWeb
+);
+router.get(
+  "/getAllInvestmentPlansInApp",
+  optionalAuthMiddleware,
+  getAllInvestmentPlansInApp
+);
+router.get(
+  "/getInvestmentPlanById",
+  optionalAuthMiddleware,
+  getInvestmentPlanById
+);
+router.get(
+  "/getInvestmentPurchasesInWeb",
+  optionalAuthMiddleware,
+  getInvestmentPurchasesInWeb
+);
+router.get(
+  "/getInvestmentPurchasesInApp",
+  optionalAuthMiddleware,
+  getInvestmentPurchasesInApp
+);
+router.get(
+  "/getInvestmentPerformance",
+  authMiddleware,
+  getInvestmentPerformance
+);
+router.get(
+  "/getInvestmentPerformanceChart",
+  authMiddleware,
+  getInvestmentPerformanceChart
+);
 router.get("/getPopularPlans", optionalAuthMiddleware, getPopularPlans);
 router.get("/getFeaturedPlans", optionalAuthMiddleware, getFeaturedPlans);
 router.get("/getAllCategory", getAllCategory);
@@ -135,7 +178,11 @@ router.get("/getAllCategory", getAllCategory);
 /* ----------------------------------
    🔔 Notifications
 ---------------------------------- */
-router.get("/getNotificationsByUserId", authMiddleware, getNotificationsByUserId);
+router.get(
+  "/getNotificationsByUserId",
+  authMiddleware,
+  getNotificationsByUserId
+);
 
 /* ----------------------------------
    📃 Policy & FAQ
@@ -149,22 +196,38 @@ router.post("/subscribeNewsletter", subscribeNewsletter);
 router.get("/getAllResearchAnalysis", getAllResearchAnalysis);
 router.post("/createContact", createContact);
 
-
 router.get("/getAllFreeOfferingsInUser", getAllFreeOfferingsInUser);
-router.get("/getAllIndividualBusinessServicesInUser", getAllIndividualBusinessServicesInUser);
+router.get(
+  "/getAllIndividualBusinessServicesInUser",
+  getAllIndividualBusinessServicesInUser
+);
 
 router.get("/getAllBusinessServicesInUser", getAllBusinessServicesInUser);
-router.get("/getAllInstitutionalServicesInUser", getAllInstitutionalServicesInUser);
+router.get(
+  "/getAllInstitutionalServicesInUser",
+  getAllInstitutionalServicesInUser
+);
 router.get("/getAllFAQsInUser", getAllFAQsInUser);
-router.post("/createPlan",authMiddleware, createPlan);
-router.get("/renewPlan",authMiddleware, renewPlan);
+router.post("/createPlan", authMiddleware, createPlan);
+router.post("/renewPlan", authMiddleware, renewPlan);
 
-router.get("/getPlanByUserId",authMiddleware, getPlanByUserId);
-router.get("/hasUserTakenPlan",optionalAuthMiddleware, hasUserTakenPlan);
-router.get("/getResearchByUserPlan",optionalAuthMiddleware, getResearchByUserPlan);
+router.get("/getPlanByUserId", authMiddleware, getPlanByUserId);
+router.get("/hasUserTakenPlan", optionalAuthMiddleware, hasUserTakenPlan);
+router.get(
+  "/getResearchByUserPlan",
+  optionalAuthMiddleware,
+  getResearchByUserPlan
+);
 router.get("/getAllTestimonialsInUser", getAllTestimonialsInUser);
 router.get("/getAllServicesInUser", getAllServicesInUser);
-router.get("/getUserGrowthChart",optionalAuthMiddleware, getUserGrowthChart);
+router.get("/getUserGrowthChart", optionalAuthMiddleware, getUserGrowthChart);
 router.get("/getPlanAmountInUser", getPlanAmountInUser);
+
+router.get("/getBanner", getBanner);
+router.get("/getAllWhyChooseUs", getAllWhyChooseUs);
+router.get("/getAllHowItWorks", getAllHowItWorks);
+router.get("/getNewsletter", getNewsletter);
+router.get("/getOurObjectives", getAllOurObjectives);
+router.get("/getContactUs", getContactUs);
 
 export default router;

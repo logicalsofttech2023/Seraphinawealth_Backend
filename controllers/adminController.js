@@ -27,6 +27,14 @@ import UserGraph from "../models/UserGraph.js";
 import moment from "moment";
 import Transaction from "../models/TransactionModel.js";
 import PlanAmountModel from "../models/PlanAmountModel.js";
+import {
+  Banner,
+  ContactUs,
+  HowItWorks,
+  Newsletter,
+  OurObjectives,
+  WhyChooseUs,
+} from "../models/WebsiteUi.js";
 
 const ALLOWED_EXTENSIONS = /\.(pdf|doc|docx|txt)$/i;
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
@@ -1723,66 +1731,66 @@ export const addResearchAnalysis = async (req, res) => {
   }
 };
 
-const notifyUsersByService = async ({
-  serviceField,
-  serviceChoiceType,
-  serviceIds,
-  fileNames,
-  title,
-  description,
-}) => {
-  if (!serviceIds.length) return;
+// const notifyUsersByService = async ({
+//   serviceField,
+//   serviceChoiceType,
+//   serviceIds,
+//   fileNames,
+//   title,
+//   description,
+// }) => {
+//   if (!serviceIds.length) return;
 
-  try {
-    const matchingPlans = await Plan.find({
-      serviceChoice: serviceChoiceType,
-      [serviceField]: { $in: serviceIds },
-    }).select("userId");
+//   try {
+//     const matchingPlans = await Plan.find({
+//       serviceChoice: serviceChoiceType,
+//       [serviceField]: { $in: serviceIds },
+//     }).select("userId");
 
-    const userIds = matchingPlans.map((plan) => plan.userId);
+//     const userIds = matchingPlans.map((plan) => plan.userId);
 
-    const users = await User.find({ _id: { $in: userIds } }).select(
-      "userEmail"
-    );
-    const planEmailList = users.map((user) => user.userEmail).filter(Boolean);
+//     const users = await User.find({ _id: { $in: userIds } }).select(
+//       "userEmail"
+//     );
+//     const planEmailList = users.map((user) => user.userEmail).filter(Boolean);
 
-    // For freeOffering only: include subscribed newsletter users
-    let newsletterEmailList = [];
-    if (serviceField === "freeOfferings") {
-      const subscribers = await NewsletterSubscriber.find({
-        status: "Subscribed",
-      }).select("email");
-      newsletterEmailList = subscribers.map((s) => s.email).filter(Boolean);
-    }
+//     // For freeOffering only: include subscribed newsletter users
+//     let newsletterEmailList = [];
+//     if (serviceField === "freeOfferings") {
+//       const subscribers = await NewsletterSubscriber.find({
+//         status: "Subscribed",
+//       }).select("email");
+//       newsletterEmailList = subscribers.map((s) => s.email).filter(Boolean);
+//     }
 
-    // Merge and deduplicate email list
-    const allRecipients = [
-      ...new Set([...planEmailList, ...newsletterEmailList]),
-    ];
+//     // Merge and deduplicate email list
+//     const allRecipients = [
+//       ...new Set([...planEmailList, ...newsletterEmailList]),
+//     ];
 
-    const baseUrl = `${process.env.BASE_URL}/uploads/documents`;
-    const fileLinks = fileNames
-      .map((name) => `${baseUrl}/${name}`)
-      .join("<br>");
+//     const baseUrl = `${process.env.BASE_URL}/uploads/documents`;
+//     const fileLinks = fileNames
+//       .map((name) => `${baseUrl}/${name}`)
+//       .join("<br>");
 
-    const subject = `New Research Document: ${title}`;
-    const html = `
-      <h3>${title}</h3>
-      ${description}
-      <p><strong>Documents:</strong><br>${fileLinks}</p>
-    `;
+//     const subject = `New Research Document: ${title}`;
+//     const html = `
+//       <h3>${title}</h3>
+//       ${description}
+//       <p><strong>Documents:</strong><br>${fileLinks}</p>
+//     `;
 
-    for (const email of allRecipients) {
-      await sendMail({ to: email, subject, html });
-    }
+//     for (const email of allRecipients) {
+//       await sendMail({ to: email, subject, html });
+//     }
 
-    console.log(
-      `Mail sent to ${allRecipients.length} users for ${serviceField}`
-    );
-  } catch (err) {
-    console.error(`Error sending email for ${serviceField}:`, err);
-  }
-};
+//     console.log(
+//       `Mail sent to ${allRecipients.length} users for ${serviceField}`
+//     );
+//   } catch (err) {
+//     console.error(`Error sending email for ${serviceField}:`, err);
+//   }
+// };
 
 // export const addResearchAnalysis = async (req, res) => {
 //   try {
@@ -1909,6 +1917,72 @@ const notifyUsersByService = async ({
 //     });
 //   }
 // };
+
+const notifyUsersByService = async ({
+  serviceField,
+  serviceChoiceType,
+  serviceIds,
+  fileNames,
+  title,
+  description,
+}) => {
+  if (!serviceIds.length) return;
+
+  try {
+    // Get all ACTIVE plans where users have any of the selected services
+    const matchingPlans = await Plan.find({
+      status: "active", // Only active plans
+      [serviceField]: { $in: serviceIds },
+    }).select("userId");
+
+    // Extract unique userIds
+    const userIdSet = new Set(
+      matchingPlans.map((plan) => plan.userId.toString())
+    );
+
+    const users = await User.find({
+      _id: { $in: Array.from(userIdSet) },
+    }).select("userEmail");
+
+    const planEmailList = users.map((user) => user.userEmail).filter(Boolean);
+
+    // Include newsletter subscribers for free offerings only
+    let newsletterEmailList = [];
+    if (serviceField === "freeOfferings") {
+      const subscribers = await NewsletterSubscriber.find({
+        status: "Subscribed",
+      }).select("email");
+      newsletterEmailList = subscribers.map((s) => s.email).filter(Boolean);
+    }
+
+    // Merge and deduplicate emails
+    const allRecipients = [
+      ...new Set([...planEmailList, ...newsletterEmailList]),
+    ];
+
+    const baseUrl = `${process.env.BASE_URL}/uploads/documents`;
+    const fileLinks = fileNames
+      .map((name) => `${baseUrl}/${name}`)
+      .join("<br>");
+
+    const subject = `New Research Document: ${title}`;
+    const html = `
+      <h3>${title}</h3>
+      <p>${description}</p>
+      <p><strong>Documents:</strong><br>${fileLinks}</p>
+    `;
+
+    for (const email of allRecipients) {
+      await sendMail({ to: email, subject, html });
+    }
+
+    console.log(
+      `📩 Mail sent to ${allRecipients.length} users for ${serviceField}`
+    );
+  } catch (err) {
+    console.error(`❌ Error sending email for ${serviceField}:`, err);
+  }
+};
 
 export const updateResearchAnalysis = async (req, res) => {
   try {
@@ -2437,7 +2511,7 @@ export const updatePlan = async (req, res) => {
 
 export const deletePlan = async (req, res) => {
   try {
-    const { id } = req.params;
+    const { id } = req.query;
     const deleted = await Plan.findByIdAndDelete(id);
 
     if (!deleted) {
@@ -3290,84 +3364,153 @@ export const deleteUserGraph = async (req, res) => {
   }
 };
 
+// export const getUserGrowthChart = async (req, res) => {
+//   try {
+//     const userId = req?.user?.id;
+
+//     if (!userId) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "userId is required",
+//       });
+//     }
+
+//     if (!mongoose.Types.ObjectId.isValid(userId)) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Invalid userId format",
+//       });
+//     }
+
+//     // Step 1: Fetch latest plan
+//     const latestPlan = await Plan.findOne({ userId }).sort({ createdAt: -1 });
+
+//     if (!latestPlan) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "No plan found for this user",
+//       });
+//     }
+
+//     const {
+//       freeOfferings = [],
+//       individualBusinessServices = [],
+//       businessServices = [],
+//       institutionalServices = [],
+//       startDate: planStartDate,
+//       endDate: planEndDate,
+//     } = latestPlan;
+
+//     // Step 2: Determine serviceChoice based on first non-empty array
+//     let serviceChoice = null;
+
+//     if (freeOfferings.length > 0) serviceChoice = "free";
+//     else if (individualBusinessServices.length > 0)
+//       serviceChoice = "individual";
+//     else if (businessServices.length > 0) serviceChoice = "business";
+//     else if (institutionalServices.length > 0) serviceChoice = "institutional";
+
+//     if (!serviceChoice) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "No active services found in plan",
+//       });
+//     }
+
+//     // ✅ Step 3: Total number of selected services (not number of non-empty categories)
+//     const totalServicesSelected =
+//       freeOfferings.length +
+//       individualBusinessServices.length +
+//       businessServices.length +
+//       institutionalServices.length;
+
+//     const serviceSelected = String(totalServicesSelected);
+
+//     // Step 4: Find UserGraph entry
+//     const entry = await UserGraph.findOne({
+//       serviceChoice,
+//       serviceSelected,
+//     }).sort({ createdAt: -1 });
+
+//     if (!entry) {
+//       return res.status(404).json({
+//         success: false,
+//         message: `No UserGraph found for serviceChoice: ${serviceChoice}, serviceSelected: ${serviceSelected}`,
+//       });
+//     }
+
+//     const { amount, profitPercent } = entry;
+
+//     // Step 5: Build growth chart
+//     const durationMapping = {
+//       "15D": 0.5,
+//       "1M": 1,
+//       "1.5M": 1.5,
+//       "2M": 2,
+//       "2.5M": 2.5,
+//       "3M": 3,
+//       "3.5M": 3.5,
+//       "4M": 4,
+//       "4.5M": 4.5,
+//       "5M": 5,
+//       "5.5M": 5.5,
+//       "6M": 6,
+//     };
+
+//     const chart = [];
+
+//     for (const [label, months] of Object.entries(durationMapping)) {
+//       const futureDate = moment(planStartDate).add(months, "months");
+
+//       if (futureDate.isAfter(moment(planEndDate))) break;
+
+//       const gain = (amount * profitPercent * (months / 6)) / 100;
+//       const finalAmount = Math.round(amount + gain);
+
+//       chart.push({
+//         label,
+//         date: futureDate.format("YYYY-MM-DD"),
+//         amount: finalAmount,
+//       });
+//     }
+
+//     return res.status(200).json({
+//       success: true,
+//       message: "Growth chart generated successfully",
+//       data: chart,
+//       serviceChoice,
+//       serviceSelected,
+//     });
+//   } catch (error) {
+//     return res.status(500).json({
+//       success: false,
+//       message: "Server error while generating growth chart",
+//       error: error.message,
+//     });
+//   }
+// };
+
 export const getUserGrowthChart = async (req, res) => {
   try {
     const userId = req?.user?.id;
 
-    if (!userId) {
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({
         success: false,
-        message: "userId is required",
+        message: "Valid userId is required",
       });
     }
 
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid userId format",
-      });
-    }
+    // Step 1: Fetch all plans for the user
+    const userPlans = await Plan.find({ userId }).sort({ createdAt: -1 });
 
-    // Step 1: Fetch latest plan
-    const latestPlan = await Plan.findOne({ userId }).sort({ createdAt: -1 });
-
-    if (!latestPlan) {
+    if (!userPlans || userPlans.length === 0) {
       return res.status(404).json({
         success: false,
-        message: "No plan found for this user",
+        message: "No plans found for this user",
       });
     }
 
-    const {
-      freeOfferings = [],
-      individualBusinessServices = [],
-      businessServices = [],
-      institutionalServices = [],
-      startDate: planStartDate,
-      endDate: planEndDate,
-    } = latestPlan;
-
-    // Step 2: Determine serviceChoice based on first non-empty array
-    let serviceChoice = null;
-
-    if (freeOfferings.length > 0) serviceChoice = "free";
-    else if (individualBusinessServices.length > 0)
-      serviceChoice = "individual";
-    else if (businessServices.length > 0) serviceChoice = "business";
-    else if (institutionalServices.length > 0) serviceChoice = "institutional";
-
-    if (!serviceChoice) {
-      return res.status(400).json({
-        success: false,
-        message: "No active services found in plan",
-      });
-    }
-
-    // ✅ Step 3: Total number of selected services (not number of non-empty categories)
-    const totalServicesSelected =
-      freeOfferings.length +
-      individualBusinessServices.length +
-      businessServices.length +
-      institutionalServices.length;
-
-    const serviceSelected = String(totalServicesSelected);
-
-    // Step 4: Find UserGraph entry
-    const entry = await UserGraph.findOne({
-      serviceChoice,
-      serviceSelected,
-    }).sort({ createdAt: -1 });
-
-    if (!entry) {
-      return res.status(404).json({
-        success: false,
-        message: `No UserGraph found for serviceChoice: ${serviceChoice}, serviceSelected: ${serviceSelected}`,
-      });
-    }
-
-    const { amount, profitPercent } = entry;
-
-    // Step 5: Build growth chart
     const durationMapping = {
       "15D": 0.5,
       "1M": 1,
@@ -3383,29 +3526,93 @@ export const getUserGrowthChart = async (req, res) => {
       "6M": 6,
     };
 
-    const chart = [];
+    const allCharts = [];
+    const serviceCombinations = new Set(); // Track unique service combinations
 
-    for (const [label, months] of Object.entries(durationMapping)) {
-      const futureDate = moment(planStartDate).add(months, "months");
+    for (const plan of userPlans) {
+      const {
+        freeOfferings = [],
+        individualBusinessServices = [],
+        businessServices = [],
+        institutionalServices = [],
+        startDate: planStartDate,
+        endDate: planEndDate,
+        _id: planId,
+        createdAt,
+      } = plan;
 
-      if (futureDate.isAfter(moment(planEndDate))) break;
+      // Determine serviceChoice
+      let serviceChoice = null;
+      if (freeOfferings.length > 0) serviceChoice = "free";
+      else if (individualBusinessServices.length > 0)
+        serviceChoice = "individual";
+      else if (businessServices.length > 0) serviceChoice = "business";
+      else if (institutionalServices.length > 0)
+        serviceChoice = "institutional";
 
-      const gain = (amount * profitPercent * (months / 6)) / 100;
-      const finalAmount = Math.round(amount + gain);
+      if (!serviceChoice) continue; // skip if no valid service
 
-      chart.push({
-        label,
-        date: futureDate.format("YYYY-MM-DD"),
-        amount: finalAmount,
+      const totalServicesSelected =
+        freeOfferings.length +
+        individualBusinessServices.length +
+        businessServices.length +
+        institutionalServices.length;
+
+      const serviceSelected = String(totalServicesSelected);
+
+      // Create a unique key for this service combination
+      const serviceKey = `${serviceChoice}-${serviceSelected}`;
+
+      // Skip if we've already processed this combination
+      if (serviceCombinations.has(serviceKey)) continue;
+      serviceCombinations.add(serviceKey);
+
+      const entry = await UserGraph.findOne({
+        serviceChoice,
+        serviceSelected,
+      }).sort({ createdAt: -1 });
+
+      if (!entry) continue;
+
+      const { amount, profitPercent } = entry;
+
+      const chart = [];
+
+      for (const [label, months] of Object.entries(durationMapping)) {
+        const futureDate = moment(planStartDate).add(months, "months");
+
+        if (futureDate.isAfter(moment(planEndDate))) break;
+
+        const gain = (amount * profitPercent * (months / 6)) / 100;
+        const finalAmount = Math.round(amount + gain);
+
+        chart.push({
+          label,
+          date: futureDate.format("YYYY-MM-DD"),
+          amount: finalAmount,
+        });
+      }
+
+      allCharts.push({
+        planId,
+        createdAt,
+        serviceChoice,
+        serviceSelected,
+        chart,
+      });
+    }
+
+    if (allCharts.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No valid UserGraph entries found for any of the plans",
       });
     }
 
     return res.status(200).json({
       success: true,
-      message: "Growth chart generated successfully",
-      data: chart,
-      serviceChoice,
-      serviceSelected,
+      message: "Unique growth charts generated successfully",
+      data: allCharts,
     });
   } catch (error) {
     return res.status(500).json({
@@ -3504,8 +3711,14 @@ export const getUsersCounts = async (req, res) => {
 
 export const addUpdatePlanAmount = async (req, res) => {
   try {
-    const { basePrice, gst, platformFee, selectPercentage, gstStatus, platformFeeStatus } =
-      req.body;
+    const {
+      basePrice,
+      gst,
+      platformFee,
+      selectPercentage,
+      gstStatus,
+      platformFeeStatus,
+    } = req.body;
 
     if (!basePrice || !gst || !platformFee || !selectPercentage) {
       return res
@@ -3541,13 +3754,11 @@ export const addUpdatePlanAmount = async (req, res) => {
       });
     }
 
-    res
-      .status(200)
-      .json({
-        message: "Plan amount saved successfully",
-        data: result,
-        status: true,
-      });
+    res.status(200).json({
+      message: "Plan amount saved successfully",
+      data: result,
+      status: true,
+    });
   } catch (error) {
     console.error("Error in addUpdatePlanAmount:", error);
     res.status(500).json({ message: "Server error", status: false });
@@ -3562,16 +3773,21 @@ export const updatePlanAmountStatus = async (req, res) => {
     const existing = await PlanAmountModel.findOne();
 
     if (!existing) {
-      return res.status(404).json({ message: "Plan amount not found", status: false });
+      return res
+        .status(404)
+        .json({ message: "Plan amount not found", status: false });
     }
 
     // Prepare update object
     const updateFields = {};
-    if (typeof gstStatus === 'boolean') updateFields.gstStatus = gstStatus;
-    if (typeof platformFeeStatus === 'boolean') updateFields.platformFeeStatus = platformFeeStatus;
+    if (typeof gstStatus === "boolean") updateFields.gstStatus = gstStatus;
+    if (typeof platformFeeStatus === "boolean")
+      updateFields.platformFeeStatus = platformFeeStatus;
 
     if (Object.keys(updateFields).length === 0) {
-      return res.status(400).json({ message: "No valid status fields provided", status: false });
+      return res
+        .status(400)
+        .json({ message: "No valid status fields provided", status: false });
     }
 
     // Update status fields
@@ -3596,7 +3812,9 @@ export const getPlanAmount = async (req, res) => {
   try {
     const planAmount = await PlanAmountModel.findOne();
     if (!planAmount) {
-      return res.status(404).json({ message: "Plan amount not found", status: false });
+      return res
+        .status(404)
+        .json({ message: "Plan amount not found", status: false });
     }
     res.status(200).json({
       message: "Plan amount fetched successfully",
@@ -3606,5 +3824,630 @@ export const getPlanAmount = async (req, res) => {
   } catch (error) {
     console.error("Error in getPlanAmount:", error);
     res.status(500).json({ message: "Server error", status: false });
+  }
+};
+
+// Banner Controllers
+
+export const getBanner = async (req, res) => {
+  try {
+    // Get the single banner document
+    const banner = await Banner.findOne();
+
+    if (!banner) {
+      return res.status(404).json({
+        success: false,
+        message: "Banner not found",
+        data: null,
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Banner retrieved",
+      data: banner,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+export const addOrUpdateBanner = async (req, res) => {
+  try {
+    const {
+      title,
+      altText,
+      activeCustomers,
+      projectCompleted,
+      customerSatisfaction,
+      shlok,
+    } = req.body;
+
+    const image = req.files?.image?.[0]?.filename || "";
+
+    // Validation
+    if (
+      !title ||
+      !altText ||
+      !activeCustomers ||
+      !projectCompleted ||
+      !customerSatisfaction ||
+      !shlok
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "All fields are required",
+      });
+    }
+
+    // if (!image && !req.query.skipImageCheck) {
+    //   return res.status(400).json({
+    //     success: false,
+    //     message: "Image is required",
+    //   });
+    // }
+
+    // Check if banner exists
+    const existingBanner = await Banner.findOne();
+
+    let banner;
+
+    if (existingBanner) {
+      // Update existing banner
+      const updateData = {
+        title,
+        altText,
+        activeCustomers,
+        projectCompleted,
+        customerSatisfaction,
+        shlok,
+      };
+
+      // Only update image if new one is provided
+      if (image) {
+        updateData.image = image;
+      }
+
+      banner = await Banner.findOneAndUpdate({}, updateData, {
+        new: true,
+        upsert: true, // Create if doesn't exist
+      });
+
+      res.status(200).json({
+        success: true,
+        message: "Banner updated",
+        data: banner,
+      });
+    } else {
+      // Create new banner
+      banner = new Banner({
+        image,
+        title,
+        altText,
+        activeCustomers,
+        projectCompleted,
+        customerSatisfaction,
+        shlok,
+      });
+
+      await banner.save();
+
+      res.status(201).json({
+        success: true,
+        message: "Banner created",
+        data: banner,
+      });
+    }
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+export const deleteBanner = async (req, res) => {
+  try {
+    // Delete the single banner document
+    const result = await Banner.deleteOne();
+
+    if (result.deletedCount === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Banner not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Banner deleted",
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// WhyChooseUs Controllers
+export const addWhyChooseUs = async (req, res) => {
+  try {
+    const { heading, content } = req.body;
+
+    if (!heading || !content) {
+      return res
+        .status(400)
+        .json({ success: false, message: "All fields are required" });
+    }
+
+    const newWhyChooseUs = new WhyChooseUs({ heading, content });
+    await newWhyChooseUs.save();
+
+    res.status(200).json({
+      success: true,
+      message: "WhyChooseUs added",
+      data: newWhyChooseUs,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getWhyChooseUsById = async (req, res) => {
+  try {
+    const whyChooseUs = await WhyChooseUs.findById(req.query.id);
+    if (!whyChooseUs) {
+      return res
+        .status(404)
+        .json({ success: false, message: "WhyChooseUs not found" });
+    }
+    res.status(200).json({ success: true, data: whyChooseUs });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getAllWhyChooseUs = async (req, res) => {
+  try {
+    const whyChooseUs = await WhyChooseUs.find();
+    res.status(200).json({ success: true, data: whyChooseUs });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const updateWhyChooseUs = async (req, res) => {
+  try {
+    const { id } = req.query;
+    const updatedWhyChooseUs = await WhyChooseUs.findByIdAndUpdate(
+      id,
+      req.body,
+      { new: true }
+    );
+    if (!updatedWhyChooseUs) {
+      return res
+        .status(404)
+        .json({ success: false, message: "WhyChooseUs not found" });
+    }
+    res.status(200).json({
+      success: true,
+      message: "WhyChooseUs updated",
+      data: updatedWhyChooseUs,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const deleteWhyChooseUs = async (req, res) => {
+  try {
+    const deletedWhyChooseUs = await WhyChooseUs.findByIdAndDelete(
+      req.query.id
+    );
+    if (!deletedWhyChooseUs) {
+      return res
+        .status(404)
+        .json({ success: false, message: "WhyChooseUs not found" });
+    }
+    res.status(200).json({ success: true, message: "WhyChooseUs deleted" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// HowItWorks Controllers
+export const addHowItWorks = async (req, res) => {
+  try {
+    const { content } = req.body;
+    const image = req.files?.image?.[0]?.filename || "";
+
+    if (!content) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Content is required" });
+    }
+
+    let parsedContent;
+    try {
+      parsedContent = JSON.parse(content); // content is expected as JSON string
+    } catch (err) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid content format" });
+    }
+
+    if (!Array.isArray(parsedContent) || parsedContent.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Content must be a non-empty array",
+      });
+    }
+
+    if (parsedContent.length > 3) {
+      return res.status(400).json({
+        success: false,
+        message: "Maximum 3 content blocks are allowed",
+      });
+    }
+
+    const hasInvalidBlock = parsedContent.some(
+      (block) => !block.title || !block.description
+    );
+    if (hasInvalidBlock) {
+      return res.status(400).json({
+        success: false,
+        message: "Each content block must have a title and description",
+      });
+    }
+
+    const newHowItWorks = new HowItWorks({ image, content: parsedContent });
+    await newHowItWorks.save();
+
+    res.status(200).json({
+      success: true,
+      message: "HowItWorks added",
+      data: newHowItWorks,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getHowItWorksById = async (req, res) => {
+  try {
+    const howItWorks = await HowItWorks.findById(req.query.id);
+    if (!howItWorks) {
+      return res
+        .status(404)
+        .json({ success: false, message: "HowItWorks not found" });
+    }
+    res.status(200).json({ success: true, data: howItWorks });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getAllHowItWorks = async (req, res) => {
+  try {
+    const howItWorks = await HowItWorks.find();
+    res.status(200).json({ success: true, data: howItWorks });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const updateHowItWorks = async (req, res) => {
+  try {
+    const { id } = req.query;
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "ID is required for update",
+      });
+    }
+
+    const updateData = {};
+
+    // Handle image
+    const image = req.files?.image?.[0]?.filename;
+    if (image) {
+      updateData.image = image;
+    }
+
+    // Handle content
+    if (req.body.content) {
+      let parsedContent;
+      try {
+        parsedContent = JSON.parse(req.body.content);
+      } catch (err) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid content format",
+        });
+      }
+
+      if (!Array.isArray(parsedContent) || parsedContent.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Content must be a non-empty array",
+        });
+      }
+
+      if (parsedContent.length > 3) {
+        return res.status(400).json({
+          success: false,
+          message: "Maximum 3 content blocks are allowed",
+        });
+      }
+
+      const hasInvalidBlock = parsedContent.some(
+        (block) => !block.title || !block.description
+      );
+      if (hasInvalidBlock) {
+        return res.status(400).json({
+          success: false,
+          message: "Each content block must have a title and description",
+        });
+      }
+
+      updateData.content = parsedContent;
+    }
+
+    const updatedHowItWorks = await HowItWorks.findByIdAndUpdate(
+      id,
+      updateData,
+      {
+        new: true,
+      }
+    );
+
+    if (!updatedHowItWorks) {
+      return res.status(404).json({
+        success: false,
+        message: "HowItWorks not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "HowItWorks updated",
+      data: updatedHowItWorks,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+export const deleteHowItWorks = async (req, res) => {
+  try {
+    const deletedHowItWorks = await HowItWorks.findByIdAndDelete(req.query.id);
+    if (!deletedHowItWorks) {
+      return res
+        .status(404)
+        .json({ success: false, message: "HowItWorks not found" });
+    }
+    res.status(200).json({ success: true, message: "HowItWorks deleted" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Newsletter Controllers
+export const addOrUpdateNewsletter = async (req, res) => {
+  try {
+    const { id, title } = req.body;
+    const image = req.files?.image?.[0]?.filename;
+
+    if (!title) {
+      return res.status(400).json({
+        success: false,
+        message: "Title is required",
+      });
+    }
+
+    // If `id` is present, update existing newsletter
+    if (id) {
+      const updateData = { title };
+      if (image) updateData.image = image;
+
+      const updatedNewsletter = await Newsletter.findByIdAndUpdate(
+        id,
+        updateData,
+        {
+          new: true,
+        }
+      );
+
+      if (!updatedNewsletter) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Newsletter not found" });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "Newsletter updated successfully",
+        data: updatedNewsletter,
+      });
+    }
+
+    // Else, create a new newsletter
+    const newNewsletter = new Newsletter({
+      title,
+      image: image || "",
+    });
+
+    await newNewsletter.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Newsletter added successfully",
+      data: newNewsletter,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+export const getNewsletter = async (req, res) => {
+  try {
+    const newsletter = await Newsletter.findOne();
+    if (!newsletter) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Newsletter not found" });
+    }
+    res.status(200).json({ success: true, data: newsletter });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// OurObjectives Controllers
+export const addOrUpdateOurObjectives = async (req, res) => {
+  try {
+    const { id, heading, content } = req.body;
+
+    if (!heading || !content) {
+      return res.status(400).json({
+        success: false,
+        message: "All fields are required",
+      });
+    }
+
+    // If `id` is provided, update the document
+    if (id) {
+      const updatedObjective = await OurObjectives.findByIdAndUpdate(
+        id,
+        { heading, content },
+        { new: true }
+      );
+
+      if (!updatedObjective) {
+        return res.status(404).json({
+          success: false,
+          message: "OurObjectives not found",
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "OurObjectives updated successfully",
+        data: updatedObjective,
+      });
+    }
+
+    // Check if a document already exists
+    const existing = await OurObjectives.findOne();
+    if (existing) {
+      return res.status(400).json({
+        success: false,
+        message: "Only one OurObjectives document is allowed. Please update the existing one.",
+        data: existing,
+      });
+    }
+
+    // If not, create a new document
+    const newOurObjectives = new OurObjectives({ heading, content });
+    await newOurObjectives.save();
+
+    res.status(200).json({
+      success: true,
+      message: "OurObjectives added successfully",
+      data: newOurObjectives,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+
+export const getAllOurObjectives = async (req, res) => {
+  try {
+    const ourObjectives = await OurObjectives.find();
+    res.status(200).json({ success: true, data: ourObjectives });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ContactUs Controllers
+export const addOrUpdateContactUs = async (req, res) => {
+  try {
+    const { id, officeLocation, email, phone } = req.body;
+
+    if (!officeLocation || !email || !phone) {
+      return res.status(400).json({
+        success: false,
+        message: "All fields are required",
+      });
+    }
+
+    // If `id` is provided, update the existing document
+    if (id) {
+      const updatedContact = await ContactUs.findByIdAndUpdate(
+        id,
+        { officeLocation, email, phone },
+        { new: true }
+      );
+
+      if (!updatedContact) {
+        return res.status(404).json({
+          success: false,
+          message: "ContactUs not found",
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "ContactUs updated successfully",
+        data: updatedContact,
+      });
+    }
+
+    // Check if a ContactUs document already exists
+    const existing = await ContactUs.findOne();
+    if (existing) {
+      return res.status(400).json({
+        success: false,
+        message: "Only one ContactUs document is allowed. Please update the existing one.",
+        data: existing,
+      });
+    }
+
+    // Create new ContactUs document
+    const newContactUs = new ContactUs({ officeLocation, email, phone });
+    await newContactUs.save();
+
+    res.status(200).json({
+      success: true,
+      message: "ContactUs added successfully",
+      data: newContactUs,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+export const getContactUs = async (req, res) => {
+  try {
+    const contactUs = await ContactUs.findOne();
+    res.status(200).json({ success: true, data: contactUs });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 };
