@@ -50,6 +50,7 @@ import {
   getAllTestimonialsInUser,
   getAllServicesInUser,
   getPlanAmountInUser,
+  getServiceByType,
 } from "../controllers/userController.js";
 
 import {
@@ -229,5 +230,8 @@ router.get("/getAllHowItWorks", getAllHowItWorks);
 router.get("/getNewsletter", getNewsletter);
 router.get("/getOurObjectives", getAllOurObjectives);
 router.get("/getContactUs", getContactUs);
+router.post("/getServiceByType", getServiceByType);
+
+
 
 export default router;

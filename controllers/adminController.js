@@ -3512,7 +3512,8 @@ export const getUserGrowthChart = async (req, res) => {
     }
 
     const durationMapping = {
-      "15D": 0.5,
+      "0M": 0,
+      "0.5M": 0.5,
       "1M": 1,
       "1.5M": 1.5,
       "2M": 2,
@@ -3581,7 +3582,7 @@ export const getUserGrowthChart = async (req, res) => {
       for (const [label, months] of Object.entries(durationMapping)) {
         const futureDate = moment(planStartDate).add(months, "months");
 
-        if (futureDate.isAfter(moment(planEndDate))) break;
+        // if (futureDate.isAfter(moment(planEndDate))) continue;
 
         const gain = (amount * profitPercent * (months / 6)) / 100;
         const finalAmount = Math.round(amount + gain);
@@ -4353,7 +4354,8 @@ export const addOrUpdateOurObjectives = async (req, res) => {
     if (existing) {
       return res.status(400).json({
         success: false,
-        message: "Only one OurObjectives document is allowed. Please update the existing one.",
+        message:
+          "Only one OurObjectives document is allowed. Please update the existing one.",
         data: existing,
       });
     }
@@ -4371,7 +4373,6 @@ export const addOrUpdateOurObjectives = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
 
 export const getAllOurObjectives = async (req, res) => {
   try {
@@ -4421,7 +4422,8 @@ export const addOrUpdateContactUs = async (req, res) => {
     if (existing) {
       return res.status(400).json({
         success: false,
-        message: "Only one ContactUs document is allowed. Please update the existing one.",
+        message:
+          "Only one ContactUs document is allowed. Please update the existing one.",
         data: existing,
       });
     }

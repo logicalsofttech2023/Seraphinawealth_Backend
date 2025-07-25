@@ -247,7 +247,7 @@ export const completeRegistration = async (req, res) => {
       return res.status(403).json({
         message:
           "Your profile is submitted successfully and is pending admin approval.",
-        status: true, // true because registration is complete
+        status: true,
         userExit: true,
         token: "",
       });
@@ -1960,12 +1960,8 @@ export const getPlanByUserId = async (req, res) => {
     }
 
     // Separate paid and free plans
-    const paidPlans = allPlans.filter(
-      (plan) => plan.serviceChoice !== "free"
-    );
-    const freePlans = allPlans.filter(
-      (plan) => plan.serviceChoice === "free"
-    );
+    const paidPlans = allPlans.filter((plan) => plan.serviceChoice !== "free");
+    const freePlans = allPlans.filter((plan) => plan.serviceChoice === "free");
 
     let selectedPlans = [];
 
@@ -2016,9 +2012,6 @@ export const getPlanByUserId = async (req, res) => {
     });
   }
 };
-
-
-
 
 export const hasUserTakenPlan = async (req, res) => {
   try {
@@ -2123,7 +2116,6 @@ export const getResearchByUserPlan = async (req, res) => {
   }
 };
 
-
 export const getAllContactReplies = async (req, res) => {
   try {
     const contacts = await Contact.find().sort({ createdAt: -1 });
@@ -2184,6 +2176,134 @@ export const getAllServicesInUser = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error fetching data",
+      error: err.message,
+    });
+  }
+};
+
+export const getServiceByType = async (req, res) => {
+  try {
+    const { type, selectedIds } = req.body;
+
+    if (!type) {
+      return res.status(400).json({
+        success: false,
+        message: "Service type is required",
+      });
+    }
+
+    const selectedIdsArray = Array.isArray(selectedIds)
+      ? selectedIds
+      : selectedIds
+      ? selectedIds.split(",")
+      : [];
+
+    // Get pricing config
+    const planAmount = await PlanAmountModel.findOne();
+    if (!planAmount) {
+      return res.status(404).json({
+        success: false,
+        message: "Plan amount config not found",
+      });
+    }
+
+    const {
+      basePrice,
+      selectPercentage,
+      gst,
+      platformFee,
+      gstStatus,
+      platformFeeStatus,
+    } = planAmount;
+
+    let services = [];
+
+    switch (type) {
+      case "freeOfferings":
+        services = await FreeOffering.find();
+        break;
+      case "individualBusinessServices":
+        services = await IndividualBusinessService.find();
+        break;
+      case "businessServices":
+        services = await BusinessService.find();
+        break;
+      case "institutionalServices":
+        services = await InstitutionalService.find();
+        break;
+      default:
+        return res.status(400).json({
+          success: false,
+          message: "Invalid service type provided",
+        });
+    }
+
+    if (!services.length) {
+      return res.status(404).json({
+        success: false,
+        message: `No services found for type '${type}'`,
+      });
+    }
+
+    let total = 0;
+
+    const updatedServices = services.map((service) => {
+      const id = service._id.toString();
+      const selectedIndex = selectedIdsArray.indexOf(id);
+      
+
+      let percentage;
+
+      if (selectedIndex !== -1) {
+        // Service is selected
+        if (selectedIndex === 0) {
+          percentage = 100;
+        } else if (selectedIndex === 1) {
+          percentage = 60;
+        } else {
+          percentage = 40;
+        }
+      } else {
+        // Not selected — keep full price or skip depending on requirement
+        percentage = 100;
+      }
+
+      const price = Math.round((basePrice * percentage) / 100);
+      total += price;
+
+      return { ...service._doc, price };
+    });
+
+    // Add GST if applicable
+    let gstAmount = 0;
+    if (gstStatus) {
+      gstAmount = Math.round((total * gst) / 100);
+    }
+
+    // Add Platform Fee if applicable
+    let platformFeeAmount = 0;
+    if (platformFeeStatus) {
+      platformFeeAmount = Math.round((total * platformFee) / 100);
+    }
+
+    const totalAmount = total + gstAmount + platformFeeAmount;
+
+    res.status(200).json({
+      success: true,
+      message: `Fetched ${type} with pricing and total amount`,
+      data: updatedServices,
+      breakdown: {
+        subtotal: total,
+        gstAmount,
+        platformFeeAmount,
+        totalAmount,
+      },
+    });
+  } catch (err) {
+    console.error("Error in getServiceByType:", err);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
       error: err.message,
     });
   }
